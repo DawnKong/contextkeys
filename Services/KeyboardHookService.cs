@@ -108,6 +108,13 @@ public class KeyboardHookService : IDisposable
 
         Logger.Info($"按键: {fullKey} | 缓存规则数: {_cachedRules.Count} | 当前配置: {_currentProfile?.Name}");
 
+        // ── Test interceptor check (BEFORE cached rules, so unsaved rules work) ──
+        if (TestInterceptor != null && TestInterceptor(fullKey, null!))
+        {
+            Logger.Info($"✓ 测试拦截器已处理: {fullKey}");
+            return new nint(1); // Suppress the key so it doesn't reach the target window
+        }
+
         if (_cachedRules.TryGetValue(fullKey, out var rules))
         {
             // Debounce: skip repeated triggers of the same key within the debounce interval
@@ -120,15 +127,6 @@ public class KeyboardHookService : IDisposable
             _lastTriggerTime[fullKey] = now;
 
             Logger.Info($"✓ 匹配: {rules[0].Name} → {rules[0].Actions.Count} 个动作");
-
-            // Check if a test interceptor wants to capture this (e.g. RuleEditorDialog test mode)
-            if (TestInterceptor != null && TestInterceptor(fullKey, rules[0]))
-            {
-                // Interceptor handled it; still suppress if needed
-                if (rules[0].SuppressOriginalKey)
-                    return new nint(1);
-                return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
-            }
 
             // Fire all matching rules for this key
             foreach (var rule in rules)
