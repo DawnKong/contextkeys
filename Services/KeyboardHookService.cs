@@ -106,12 +106,9 @@ public class KeyboardHookService : IDisposable
         // ── KEYUP: track released keys, fire when all combo keys are up ──
         if (isKeyUp && _pendingRule != null && _pendingComboKeys != null)
         {
-            // Normalize modifier key names: LShift/RShift → Shift, LCtrl/RCtrl → Ctrl, etc.
-            var normalizedKey = NormalizeModifierKey(keyName);
-
-            if (_pendingComboKeys.Contains(normalizedKey))
+            if (_pendingComboKeys.Contains(keyName))
             {
-                _releasedKeys.Add(normalizedKey);
+                _releasedKeys.Add(keyName);
 
                 if (_releasedKeys.SetEquals(_pendingComboKeys))
                 {
@@ -173,28 +170,22 @@ public class KeyboardHookService : IDisposable
     private static List<string> GetCurrentModifiers()
     {
         var mods = new List<string>();
-        if ((KeyModifierState(0x10) || KeyModifierState(0xA0) || KeyModifierState(0xA1)))
-            mods.Add("Shift");
-        if ((KeyModifierState(0x11) || KeyModifierState(0xA2) || KeyModifierState(0xA3)))
-            mods.Add("Ctrl");
-        if ((KeyModifierState(0x12) || KeyModifierState(0xA4) || KeyModifierState(0xA5)))
-            mods.Add("Alt");
-        if (KeyModifierState(0x5B) || KeyModifierState(0x5C))
-            mods.Add("Win");
+        if (KeyModifierState(0x10))   mods.Add("Shift");
+        if (KeyModifierState(0xA0))   mods.Add("LShift");
+        if (KeyModifierState(0xA1))   mods.Add("RShift");
+        if (KeyModifierState(0x11))   mods.Add("Ctrl");
+        if (KeyModifierState(0xA2))   mods.Add("LCtrl");
+        if (KeyModifierState(0xA3))   mods.Add("RCtrl");
+        if (KeyModifierState(0x12))   mods.Add("Alt");
+        if (KeyModifierState(0xA4))   mods.Add("LAlt");
+        if (KeyModifierState(0xA5))   mods.Add("RAlt");
+        if (KeyModifierState(0x5B))   mods.Add("LWin");
+        if (KeyModifierState(0x5C))   mods.Add("RWin");
         return mods;
     }
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
-
-    private static string NormalizeModifierKey(string key) => key switch
-    {
-        "LShift" or "RShift" => "Shift",
-        "LCtrl" or "RCtrl" or "Control" => "Ctrl",
-        "LAlt" or "RAlt" => "Alt",
-        "LWin" or "RWin" => "Win",
-        _ => key
-    };
 
     private static bool KeyModifierState(int vKey)
     {

@@ -222,12 +222,26 @@ public partial class RuleEditorDialog : Window
     private static List<string> GetModifiersFromKeyboard()
     {
         var modifiers = new List<string>();
-        if ((Keyboard.Modifiers & ModifierKeys.Control) != 0) modifiers.Add("Ctrl");
-        if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0) modifiers.Add("Alt");
-        if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0) modifiers.Add("Shift");
-        if ((Keyboard.Modifiers & ModifierKeys.Windows) != 0) modifiers.Add("Win");
+        // Use GetAsyncKeyState for specific L/R detection
+        if ((GetAsyncKeyState(0xA0) & 0x8000) != 0) modifiers.Add("LShift");
+        else if ((GetAsyncKeyState(0xA1) & 0x8000) != 0) modifiers.Add("RShift");
+        else if ((GetAsyncKeyState(0x10) & 0x8000) != 0) modifiers.Add("Shift");
+
+        if ((GetAsyncKeyState(0xA2) & 0x8000) != 0) modifiers.Add("LCtrl");
+        else if ((GetAsyncKeyState(0xA3) & 0x8000) != 0) modifiers.Add("RCtrl");
+        else if ((GetAsyncKeyState(0x11) & 0x8000) != 0) modifiers.Add("Ctrl");
+
+        if ((GetAsyncKeyState(0xA4) & 0x8000) != 0) modifiers.Add("LAlt");
+        else if ((GetAsyncKeyState(0xA5) & 0x8000) != 0) modifiers.Add("RAlt");
+        else if ((GetAsyncKeyState(0x12) & 0x8000) != 0) modifiers.Add("Alt");
+
+        if ((GetAsyncKeyState(0x5B) & 0x8000) != 0) modifiers.Add("LWin");
+        else if ((GetAsyncKeyState(0x5C) & 0x8000) != 0) modifiers.Add("RWin");
         return modifiers;
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
 
     private static bool IsModifierKey(Key key) =>
         key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
