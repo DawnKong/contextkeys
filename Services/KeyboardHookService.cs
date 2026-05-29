@@ -17,9 +17,10 @@ public class KeyboardHookService : IDisposable
     private readonly Dictionary<string, DateTime> _lastTriggerTime = new();
     private static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(300);
 
-    // Pending trigger: matched on KEYDOWN, fires on KEYUP of the main key
+    // Pending trigger: matched on KEYDOWN, fires when ALL combo keys (modifiers + main) are released
     private HotkeyRule? _pendingRule;
-    private string? _pendingMainKey; // The non-modifier key that must go up to fire
+    private HashSet<string>? _pendingComboKeys;       // All keys in the combo that need to go up
+    private readonly HashSet<string> _releasedKeys = new(); // Keys from the combo that have gone up so far
 
     public KeyboardHookService()
     {
@@ -102,17 +103,23 @@ public class KeyboardHookService : IDisposable
 
         var keyName = KeyCodeMapper.GetKeyName((byte)hookStruct.vkCode);
 
-        // ── KEYUP: fire pending trigger ──
-        if (isKeyUp && _pendingRule != null && _pendingMainKey != null)
+        // ── KEYUP: track released keys, fire when all combo keys are up ──
+        if (isKeyUp && _pendingRule != null && _pendingComboKeys != null)
         {
-            if (string.Equals(keyName, _pendingMainKey, StringComparison.OrdinalIgnoreCase))
+            if (_pendingComboKeys.Contains(keyName))
             {
-                // Modifiers are already released (or being released) — safe to fire
-                Logger.Info($"✓ 触发（全部键已松开）: {_pendingRule.Name} → {_pendingRule.Actions.Count} 个动作");
-                HotkeyTriggered?.Invoke(_pendingRule);
+                _releasedKeys.Add(keyName);
+
+                if (_releasedKeys.SetEquals(_pendingComboKeys))
+                {
+                    // All keys in the combo have been released — fire!
+                    Logger.Info($"✓ 触发（所有键已松开）: {_pendingRule.Name} → {_pendingRule.Actions.Count} 个动作");
+                    HotkeyTriggered?.Invoke(_pendingRule);
+                    _pendingRule = null;
+                    _pendingComboKeys = null;
+                    _releasedKeys.Clear();
+                }
             }
-            _pendingRule = null;
-            _pendingMainKey = null;
             return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
         }
 
@@ -141,13 +148,17 @@ public class KeyboardHookService : IDisposable
                 }
                 _lastTriggerTime[fullKey] = now;
 
-                Logger.Info($"✓ 待触发（等待松键）: {rules[0].Name} → {rules[0].Actions.Count} 个动作");
+                Logger.Info($"✓ 待触发（等待所有键松开）: {rules[0].Name}");
 
-                // Store pending rule — will fire on KEYUP of the main (non-modifier) key
+                // Store pending rule and all keys in the combo (modifiers + main key)
                 _pendingRule = rules[0];
-                _pendingMainKey = keyName;
+                _pendingComboKeys = new HashSet<string>(modifiers, StringComparer.OrdinalIgnoreCase)
+                {
+                    keyName
+                };
+                _releasedKeys.Clear();
 
-                // Suppress the original key (and modifiers) so the target window doesn't see them
+                // Suppress the original key if needed
                 if (rules[0].SuppressOriginalKey)
                     return new nint(1);
             }
