@@ -170,17 +170,20 @@ public class KeyboardHookService : IDisposable
     private static List<string> GetCurrentModifiers()
     {
         var mods = new List<string>();
-        if (KeyModifierState(0x10))   mods.Add("Shift");
-        if (KeyModifierState(0xA0))   mods.Add("LShift");
-        if (KeyModifierState(0xA1))   mods.Add("RShift");
-        if (KeyModifierState(0x11))   mods.Add("Ctrl");
-        if (KeyModifierState(0xA2))   mods.Add("LCtrl");
-        if (KeyModifierState(0xA3))   mods.Add("RCtrl");
-        if (KeyModifierState(0x12))   mods.Add("Alt");
-        if (KeyModifierState(0xA4))   mods.Add("LAlt");
-        if (KeyModifierState(0xA5))   mods.Add("RAlt");
-        if (KeyModifierState(0x5B))   mods.Add("LWin");
-        if (KeyModifierState(0x5C))   mods.Add("RWin");
+        if (KeyModifierState(0xA0))        mods.Add("LShift");
+        else if (KeyModifierState(0xA1))   mods.Add("RShift");
+        else if (KeyModifierState(0x10))   mods.Add("Shift");
+
+        if (KeyModifierState(0xA2))        mods.Add("LCtrl");
+        else if (KeyModifierState(0xA3))   mods.Add("RCtrl");
+        else if (KeyModifierState(0x11))   mods.Add("Ctrl");
+
+        if (KeyModifierState(0xA4))        mods.Add("LAlt");
+        else if (KeyModifierState(0xA5))   mods.Add("RAlt");
+        else if (KeyModifierState(0x12))   mods.Add("Alt");
+
+        if (KeyModifierState(0x5B))        mods.Add("LWin");
+        else if (KeyModifierState(0x5C))   mods.Add("RWin");
         return mods;
     }
 
