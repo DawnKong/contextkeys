@@ -247,6 +247,8 @@ public partial class RuleEditorDialog : Window
         ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
     }
 
+    private Profile? _testProfile;
+
     private void ShowTestArea()
     {
         if (string.IsNullOrEmpty(_capturedKey)) return;
@@ -254,41 +256,61 @@ public partial class RuleEditorDialog : Window
         TestKeycapText.Text = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
         TestArea.Visibility = Visibility.Visible;
 
-        // Enable test mode: pressing the trigger key types into the test TextBox
-        var expectedKey = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
-
-        KeyboardHookService.TestInterceptor = (keyCombo, _) =>
+        // Create a temporary profile that binds to ContextKeys itself
+        RemoveTestProfile();
+        _testProfile = new Profile
         {
-            if (!string.Equals(keyCombo, expectedKey, StringComparison.OrdinalIgnoreCase))
-                return false;
-
-            // Focus the test box on UI thread, then execute on background thread
-            Dispatcher.Invoke(() =>
+            Id = "__test__",
+            Name = "【测试模式】",
+            Enabled = true,
+            Match = new WindowMatch
             {
-                TestOutputBox.Clear();
-                TestOutputBox.Focus();
-            });
-
-            // Execute output in background so Thread.Sleep doesn't block UI
-            if (_savedAction != null)
+                ProcessName = "ContextKeys",
+                MatchMode = "process_only"
+            },
+            Rules = new List<HotkeyRule>
             {
-                var action = _savedAction;
-                System.Threading.Tasks.Task.Run(() =>
+                new()
                 {
-                    if (!SafeExecutionGuard.TryEnter()) return;
-                    try
+                    Name = "test",
+                    Hotkey = new HotkeyDefinition
                     {
-                        App.InputSimService.ExecuteActions(new List<ActionStep> { action });
-                    }
-                    finally
-                    {
-                        SafeExecutionGuard.Exit();
-                    }
-                });
+                        Key = _capturedKey,
+                        Modifiers = new List<string>(_capturedModifiers),
+                        Display = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers)
+                    },
+                    SuppressOriginalKey = true,
+                    Actions = _savedAction != null
+                        ? new List<ActionStep> { _savedAction }
+                        : new List<ActionStep>()
+                }
             }
-
-            return true; // Suppress the original key
         };
+
+        App.ConfigService.Settings.Profiles.Add(_testProfile);
+
+        // Also add to the UI's Profiles collection so normal matching works
+        var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
+        if (mainWindow?.DataContext is ViewModels.MainViewModel vm)
+        {
+            vm.Profiles.Add(_testProfile);
+            vm.RefreshCurrentProfile();
+        }
+    }
+
+    private void RemoveTestProfile()
+    {
+        if (_testProfile == null) return;
+        App.ConfigService.Settings.Profiles.Remove(_testProfile);
+
+        var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
+        if (mainWindow?.DataContext is ViewModels.MainViewModel vm)
+        {
+            vm.Profiles.Remove(_testProfile);
+            vm.RefreshCurrentProfile();
+        }
+
+        _testProfile = null;
     }
 
     private void TestKeycap_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -432,7 +454,7 @@ public partial class RuleEditorDialog : Window
     protected override void OnClosed(EventArgs e)
     {
         CleanupMessageFilter();
-        KeyboardHookService.TestInterceptor = null;
+        RemoveTestProfile();
         base.OnClosed(e);
     }
 
