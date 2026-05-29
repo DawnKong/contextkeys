@@ -177,4 +177,14 @@ public static class Win32Api
     public static extern int QueryFullProcessImageName(nint hProcess, uint dwFlags, StringBuilder lpExeName, ref int lpdwSize);
 
     public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    /// <summary>
+    /// Load a PNG file as a System.Drawing.Icon for use with NotifyIcon.
+    /// The caller must dispose the returned Icon.
+    /// </summary>
+    public static System.Drawing.Icon LoadPngAsIcon(string pngPath)
+    {
+        using var bmp = new System.Drawing.Bitmap(pngPath);
+        return System.Drawing.Icon.FromHandle(bmp.GetHicon());
+    }
 }

@@ -203,14 +203,45 @@ public partial class MainWindow : Window
 
     // System tray support
     private System.Windows.Forms.NotifyIcon? _trayIcon;
+    private System.Drawing.Icon? _blueIcon;
+    private System.Drawing.Icon? _grayIcon;
+
+    private void LoadTrayIcons()
+    {
+        if (_blueIcon != null) return;
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var bluePath = System.IO.Path.Combine(baseDir, "lanse.png");
+        var grayPath = System.IO.Path.Combine(baseDir, "huise.png");
+
+        // Try parent directory too (running from ContextKeys/ subfolder)
+        if (!File.Exists(bluePath)) bluePath = System.IO.Path.Combine(baseDir, "..", "lanse.png");
+        if (!File.Exists(grayPath)) grayPath = System.IO.Path.Combine(baseDir, "..", "huise.png");
+
+        if (File.Exists(bluePath)) _blueIcon = Utils.Win32Api.LoadPngAsIcon(bluePath);
+        if (File.Exists(grayPath)) _grayIcon = Utils.Win32Api.LoadPngAsIcon(grayPath);
+    }
+
+    private void UpdateTrayIcon()
+    {
+        if (_trayIcon == null) return;
+        var isPaused = (DataContext as ViewModels.MainViewModel)?.Paused ?? false;
+        var icon = isPaused ? _grayIcon : _blueIcon;
+        if (icon != null)
+        {
+            var old = _trayIcon.Icon;
+            _trayIcon.Icon = icon;
+            old?.Dispose();
+        }
+    }
 
     private void ShowTrayIcon()
     {
         if (_trayIcon != null) return;
+        LoadTrayIcons();
 
         _trayIcon = new System.Windows.Forms.NotifyIcon
         {
-            Icon = System.Drawing.Icon.ExtractAssociatedIcon(
+            Icon = _blueIcon ?? System.Drawing.Icon.ExtractAssociatedIcon(
                 System.Reflection.Assembly.GetExecutingAssembly().Location),
             Visible = true,
             Text = "ContextKeys"
@@ -227,6 +258,7 @@ public partial class MainWindow : Window
             {
                 vm.Paused = !vm.Paused;
                 pauseItem.Text = vm.Paused ? "恢复快捷键" : "暂停所有快捷键";
+                UpdateTrayIcon();
             }
         };
         menu.Items.Add(pauseItem);

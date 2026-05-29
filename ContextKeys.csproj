@@ -9,4 +9,9 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Update="lanse.png" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="huise.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
