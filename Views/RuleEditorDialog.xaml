@@ -128,6 +128,40 @@
                                    Margin="0,4,0,0" Visibility="Collapsed">
                             Esc 或点击上方按钮完成录制
                         </TextBlock>
+
+                        <!-- Test output area -->
+                        <Border x:Name="TestArea" Style="{StaticResource InfoCardStyle}"
+                                Margin="0,16,0,0" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Margin="0,0,0,6">测试输出</TextBlock>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" x:Name="TestKeycap" Style="{StaticResource KeycapStyle}"
+                                            VerticalAlignment="Center" Margin="0,0,8,0"
+                                            Cursor="Hand" ToolTip="按下此触发键测试输出">
+                                        <TextBlock x:Name="TestKeycapText" Style="{StaticResource KeycapTextStyle}" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextTertiaryBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0">=</TextBlock>
+                                    <TextBox Grid.Column="2" x:Name="TestOutputBox"
+                                             Style="{StaticResource FormTextBoxStyle}"
+                                             IsReadOnly="True"
+                                             VerticalAlignment="Center"
+                                             Text="按下触发键后此处显示输出预览" />
+                                </Grid>
+                                <TextBlock FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                                           Margin="0,4,0,0">
+                                    在任意窗口按下触发键，输出内容将显示在此处而非发送到目标窗口。
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>

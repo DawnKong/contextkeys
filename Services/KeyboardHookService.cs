@@ -24,6 +24,13 @@ public class KeyboardHookService : IDisposable
 
     public event Action<HotkeyRule>? HotkeyTriggered;
 
+    /// <summary>
+    /// When set, matched hotkeys are passed to this interceptor instead of
+    /// being executed normally. Used by RuleEditorDialog for test output.
+    /// Return true to suppress normal execution.
+    /// </summary>
+    public static Func<string, HotkeyRule, bool>? TestInterceptor;
+
     public void Start()
     {
         _hookId = Win32Api.SetWindowsHookEx(
@@ -113,6 +120,15 @@ public class KeyboardHookService : IDisposable
             _lastTriggerTime[fullKey] = now;
 
             Logger.Info($"✓ 匹配: {rules[0].Name} → {rules[0].Actions.Count} 个动作");
+
+            // Check if a test interceptor wants to capture this (e.g. RuleEditorDialog test mode)
+            if (TestInterceptor != null && TestInterceptor(fullKey, rules[0]))
+            {
+                // Interceptor handled it; still suppress if needed
+                if (rules[0].SuppressOriginalKey)
+                    return new nint(1);
+                return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
+            }
 
             // Fire all matching rules for this key
             foreach (var rule in rules)

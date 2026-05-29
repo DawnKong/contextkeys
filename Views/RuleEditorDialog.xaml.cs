@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using ContextKeys.Models;
+using ContextKeys.Services;
 using ContextKeys.Utils;
 
 namespace ContextKeys.Views;
@@ -53,6 +54,7 @@ public partial class RuleEditorDialog : Window
         }
 
         UpdateRuleHint();
+        ShowTestArea();
     }
 
     // ── Rule name watermark ──
@@ -158,6 +160,7 @@ public partial class RuleEditorDialog : Window
             }
             ShowActionPreview(_savedAction);
         }
+        ShowTestArea();
     }
 
     private void ClearAction_Click(object sender, RoutedEventArgs e)
@@ -221,6 +224,67 @@ public partial class RuleEditorDialog : Window
     private void CleanupMessageFilter()
     {
         ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
+        KeyboardHookService.TestInterceptor = null;
+    }
+
+    private void ShowTestArea()
+    {
+        if (string.IsNullOrEmpty(_capturedKey)) return;
+
+        TestKeycapText.Text = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
+        TestArea.Visibility = Visibility.Visible;
+
+        KeyboardHookService.TestInterceptor = (keyCombo, rule) =>
+        {
+            // Check if the triggered key matches our editing hotkey
+            var expectedKey = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
+            if (!string.Equals(keyCombo, expectedKey, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Build preview from the action being edited (not the matched rule)
+            var preview = _savedAction != null
+                ? FormatActionForPreview(_savedAction)
+                : "（未录制输出动作）";
+            Dispatcher.Invoke(() => TestOutputBox.Text = preview);
+            return true; // Suppress normal execution
+        };
+    }
+
+    private static string FormatActionForPreview(ActionStep action)
+    {
+        if (action.Type == "sequence" && action.Keys != null)
+        {
+            var parts = new List<string>();
+            foreach (var key in action.Keys)
+                parts.Add(KeyDisplayToText(key));
+            return string.Join("", parts);
+        }
+        if (action.Type == "chord" && action.Keys != null)
+        {
+            return "[" + string.Join("+", action.Keys) + "]";
+        }
+        if (action.Type == "delay")
+        {
+            return $"({action.Milliseconds}ms)";
+        }
+        return action.Display;
+    }
+
+    private static string KeyDisplayToText(string key)
+    {
+        return key switch
+        {
+            "Space" => " ",
+            "Enter" => "↵",
+            "Tab" => "→",
+            "Backspace" => "⌫",
+            "Escape" => "Esc",
+            "Up" => "↑",
+            "Down" => "↓",
+            "Left" => "←",
+            "Right" => "→",
+            _ => key.Length == 1 ? key : $"[{key}]"
+        };
     }
 
     private void SetCaptureMode(bool capturing)
@@ -392,6 +456,7 @@ public partial class RuleEditorDialog : Window
             _isCapturingHotkey = false;
             ResetCaptureBoxUI();
             SetCaptureMode(false);
+            ShowTestArea();
             return;
         }
     }
