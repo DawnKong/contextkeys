@@ -106,9 +106,12 @@ public class KeyboardHookService : IDisposable
         // ── KEYUP: track released keys, fire when all combo keys are up ──
         if (isKeyUp && _pendingRule != null && _pendingComboKeys != null)
         {
-            if (_pendingComboKeys.Contains(keyName))
+            // Normalize modifier key names: LShift/RShift → Shift, LCtrl/RCtrl → Ctrl, etc.
+            var normalizedKey = NormalizeModifierKey(keyName);
+
+            if (_pendingComboKeys.Contains(normalizedKey))
             {
-                _releasedKeys.Add(keyName);
+                _releasedKeys.Add(normalizedKey);
 
                 if (_releasedKeys.SetEquals(_pendingComboKeys))
                 {
@@ -183,6 +186,15 @@ public class KeyboardHookService : IDisposable
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
+
+    private static string NormalizeModifierKey(string key) => key switch
+    {
+        "LShift" or "RShift" => "Shift",
+        "LCtrl" or "RCtrl" or "Control" => "Ctrl",
+        "LAlt" or "RAlt" => "Alt",
+        "LWin" or "RWin" => "Win",
+        _ => key
+    };
 
     private static bool KeyModifierState(int vKey)
     {
