@@ -224,7 +224,6 @@ public partial class RuleEditorDialog : Window
     private void CleanupMessageFilter()
     {
         ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
-        KeyboardHookService.TestInterceptor = null;
     }
 
     private void ShowTestArea()
@@ -233,21 +232,20 @@ public partial class RuleEditorDialog : Window
 
         TestKeycapText.Text = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
         TestArea.Visibility = Visibility.Visible;
+        UpdateTestOutput();
+    }
 
-        KeyboardHookService.TestInterceptor = (keyCombo, rule) =>
-        {
-            // Check if the triggered key matches our editing hotkey
-            var expectedKey = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
-            if (!string.Equals(keyCombo, expectedKey, StringComparison.OrdinalIgnoreCase))
-                return false;
+    private void TestKeycap_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        UpdateTestOutput();
+    }
 
-            // Build preview from the action being edited (not the matched rule)
-            var preview = _savedAction != null
-                ? FormatActionForPreview(_savedAction)
-                : "（未录制输出动作）";
-            Dispatcher.Invoke(() => TestOutputBox.Text = preview);
-            return true; // Suppress normal execution
-        };
+    private void UpdateTestOutput()
+    {
+        var preview = _savedAction != null
+            ? FormatActionForPreview(_savedAction)
+            : "（未录制输出动作）";
+        TestOutputBox.Text = preview;
     }
 
     private static string FormatActionForPreview(ActionStep action)

@@ -144,7 +144,8 @@
                                     </Grid.ColumnDefinitions>
                                     <Border Grid.Column="0" x:Name="TestKeycap" Style="{StaticResource KeycapStyle}"
                                             VerticalAlignment="Center" Margin="0,0,8,0"
-                                            Cursor="Hand" ToolTip="按下此触发键测试输出">
+                                            Cursor="Hand" ToolTip="点击测试输出"
+                                            MouseLeftButtonDown="TestKeycap_Click">
                                         <TextBlock x:Name="TestKeycapText" Style="{StaticResource KeycapTextStyle}" />
                                     </Border>
                                     <TextBlock Grid.Column="1" FontSize="16" FontWeight="SemiBold"
@@ -154,11 +155,11 @@
                                              Style="{StaticResource FormTextBoxStyle}"
                                              IsReadOnly="True"
                                              VerticalAlignment="Center"
-                                             Text="按下触发键后此处显示输出预览" />
+                                             Text="" />
                                 </Grid>
                                 <TextBlock FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
                                            Margin="0,4,0,0">
-                                    在任意窗口按下触发键，输出内容将显示在此处而非发送到目标窗口。
+                                    点击左侧触发键可预览输出内容。修改动作后自动刷新。
                                 </TextBlock>
                             </StackPanel>
                         </Border>
