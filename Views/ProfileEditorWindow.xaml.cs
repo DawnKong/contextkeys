@@ -90,7 +90,7 @@ public partial class ProfileEditorWindow : Window
 
     private void AddRule_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new RuleEditorDialog();
+        var dialog = new RuleEditorDialog(_rules);
         if (dialog.ShowDialog() == true && dialog.ResultRule != null)
         {
             _rules.Add(dialog.ResultRule);
@@ -102,7 +102,7 @@ public partial class ProfileEditorWindow : Window
     {
         if (sender is FrameworkElement fe && fe.Tag is HotkeyRule rule)
         {
-            var dialog = new RuleEditorDialog(rule);
+            var dialog = new RuleEditorDialog(rule, _rules);
             if (dialog.ShowDialog() == true && dialog.ResultRule != null)
             {
                 var index = _rules.IndexOf(rule);

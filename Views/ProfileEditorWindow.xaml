@@ -5,7 +5,6 @@
         MinWidth="560" MinHeight="480"
         Background="{StaticResource AppBackgroundBrush}"
         WindowStartupLocation="CenterScreen"
-        ShowInTaskbar="False"
         ResizeMode="CanResizeWithGrip">
     <Border Padding="24" Background="{StaticResource AppBackgroundBrush}">
         <Grid>

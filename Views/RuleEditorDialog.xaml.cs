@@ -23,18 +23,25 @@ public partial class RuleEditorDialog : Window
     private ActionStep? _savedAction;
 
     public HotkeyRule? ResultRule { get; private set; }
+    private readonly List<HotkeyRule>? _existingRules;
+    private readonly string? _editingRuleId;
 
-    public RuleEditorDialog()
+    public RuleEditorDialog() : this(null) { }
+
+    public RuleEditorDialog(List<HotkeyRule>? existingRules)
     {
         InitializeComponent();
         Title = "添加快捷键规则";
+        _existingRules = existingRules;
         UpdateRuleHint();
     }
 
-    public RuleEditorDialog(HotkeyRule rule)
+    public RuleEditorDialog(HotkeyRule rule, List<HotkeyRule>? existingRules)
     {
         InitializeComponent();
         Title = "编辑快捷键规则";
+        _existingRules = existingRules;
+        _editingRuleId = rule.Id;
 
         RuleNameBox.Text = rule.Name;
         SuppressKeyCheck.IsChecked = rule.SuppressOriginalKey;
@@ -422,6 +429,21 @@ public partial class RuleEditorDialog : Window
         }
 
         var display = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
+
+        // Check for duplicate trigger key within the same profile
+        if (_existingRules != null)
+        {
+            var conflict = _existingRules.FirstOrDefault(r =>
+                r.Id != _editingRuleId &&
+                HotkeyParser.AreEqual(r.Hotkey.Key, r.Hotkey.Modifiers, _capturedKey, _capturedModifiers));
+            if (conflict != null)
+            {
+                MessageBox.Show(
+                    $"触发键【{display}】已被规则「{conflict.Name}」使用，请更换其他按键。",
+                    "触发键冲突", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+        }
         var name = RuleNameBox.Text.Trim();
 
         if (string.IsNullOrWhiteSpace(name))

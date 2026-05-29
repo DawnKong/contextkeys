@@ -5,7 +5,6 @@
         MinWidth="500" MinHeight="480"
         Background="{StaticResource AppBackgroundBrush}"
         WindowStartupLocation="CenterScreen"
-        ShowInTaskbar="False"
         ResizeMode="CanResizeWithGrip"
         PreviewKeyDown="Window_PreviewKeyDown"
         KeyUp="Window_KeyUp">
