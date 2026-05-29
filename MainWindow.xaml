@@ -1,0 +1,363 @@
+﻿<Window x:Class="ContextKeys.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:ContextKeys.ViewModels"
+        Title="ContextKeys"
+        Width="960" Height="640"
+        MinWidth="820" MinHeight="560"
+        Background="{StaticResource AppBackgroundBrush}"
+        WindowStartupLocation="CenterScreen"
+        TextOptions.TextFormattingMode="Ideal">
+    <Window.DataContext>
+        <vm:MainViewModel x:Name="ViewModel" />
+    </Window.DataContext>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Background="{StaticResource MainSurfaceBrush}">
+            <Grid Margin="0,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Logo -->
+                <StackPanel Grid.Row="0" Margin="20,24,20,20">
+                    <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}">ContextKeys</TextBlock>
+                    <TextBlock FontSize="11" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,2,0,0">
+                        Smart shortcuts for every app.
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Navigation -->
+                <StackPanel Grid.Row="1" Margin="12,0,12,0">
+                    <!-- 配置 -->
+                    <Border x:Name="NavProfiles" Style="{StaticResource NavItemStyle}"
+                            MouseLeftButtonDown="NavProfiles_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="⚙" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock Grid.Column="1" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center">配置</TextBlock>
+                        </Grid>
+                    </Border>
+
+                    <!-- 设置 -->
+                    <Border x:Name="NavSettings" Style="{StaticResource NavItemStyle}"
+                            MouseLeftButtonDown="NavSettings_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="⚙" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock Grid.Column="1" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center">设置</TextBlock>
+                        </Grid>
+                    </Border>
+
+                    <!-- 关于 -->
+                    <Border x:Name="NavAbout" Style="{StaticResource NavItemStyle}"
+                            MouseLeftButtonDown="NavAbout_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="ℹ" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <TextBlock Grid.Column="1" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center">关于</TextBlock>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- Bottom status -->
+                <StackPanel Grid.Row="3" Margin="16,0,16,16">
+                    <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="0,0,0,12" />
+
+                    <TextBlock FontSize="12" Foreground="{StaticResource TextTertiaryBrush}" Margin="0,0,0,4">当前配置</TextBlock>
+                    <TextBlock x:Name="StatusProfile" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               Text="{Binding CurrentProfileName}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="StatusWindow" FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                               Margin="0,2,0,0"
+                               TextTrimming="CharacterEllipsis"
+                               MaxHeight="32">
+                        <Run Text="{Binding CurrentProcessName}" /><Run Text=" · " /><Run Text="{Binding CurrentTitle, FallbackValue=无窗口}" />
+                    </TextBlock>
+
+                    <TextBlock FontSize="11" Foreground="{StaticResource SuccessBrush}"
+                               Margin="0,8,0,0"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding LastTriggeredInfo}" />
+
+                    <TextBlock FontSize="11" Foreground="{StaticResource TextLinkBrush}"
+                               Margin="0,6,0,0" Cursor="Hand"
+                               TextDecorations="Underline"
+                               MouseLeftButtonDown="OpenLog_Click">
+                        📋 查看日志
+                    </TextBlock>
+
+                    <Button x:Name="TogglePauseBtn" Margin="0,8,0,0"
+                            Height="32"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Click="TogglePause_Click">
+                        <TextBlock FontSize="13" Text="{Binding PausedText}" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Content Area -->
+        <ScrollViewer Grid.Column="1"
+                       VerticalScrollBarVisibility="Auto"
+                       HorizontalScrollBarVisibility="Disabled">
+            <Border Padding="24">
+                <StackPanel>
+                <!-- Profile List Page -->
+                <StackPanel x:Name="PageProfiles" Visibility="Visible">
+                    <TextBlock Style="{StaticResource PageTitleStyle}">配置</TextBlock>
+                    <TextBlock Style="{StaticResource PageDescriptionStyle}">
+                        为不同窗口设置不同快捷键。切换窗口时，ContextKeys会自动启用对应配置。
+                    </TextBlock>
+
+                    <Button Style="{StaticResource PrimaryButtonStyle}" Width="130"
+                            HorizontalAlignment="Left" Margin="0,0,0,20"
+                            Click="AddProfile_Click">
+                        + 新增配置
+                    </Button>
+
+                    <ItemsControl x:Name="ProfileList" ItemsSource="{Binding Profiles}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border x:Name="ProfileCard" Style="{StaticResource CardStyle}"
+                                        Margin="0,0,0,12" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Row 1: Name + Toggle -->
+                                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0" FontSize="16" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       VerticalAlignment="Center"
+                                                       Text="{Binding Name}" />
+
+                                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}"
+                                                      VerticalAlignment="Center"
+                                                      IsChecked="{Binding Enabled, Mode=TwoWay}"
+                                                      ToolTip="启用/停用此配置"
+                                                      Checked="ProfileToggle_Changed"
+                                                      Unchecked="ProfileToggle_Changed" />
+                                        </Grid>
+
+                                        <!-- Row 2: Match info -->
+                                        <TextBlock Grid.Row="1" FontSize="13"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,12">
+                                            <Run Text="{Binding Match.ProcessName}" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding Match.TitleContains, StringFormat=标题包含 {0}}" />
+                                        </TextBlock>
+
+                                        <!-- Row 3: Hotkeys + Actions -->
+                                        <StackPanel Grid.Row="2">
+                                            <ItemsControl ItemsSource="{Binding Rules}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Style="{StaticResource KeycapStyle}" Margin="0,0,6,6">
+                                                            <TextBlock Style="{StaticResource KeycapTextStyle}">
+                                                                <Run Text="{Binding Hotkey.Display}" />
+                                                            </TextBlock>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+
+                                        <!-- Row 4: Actions (right-aligned icons) -->
+                                        <StackPanel Grid.Row="3" Margin="0,12,0,0" Orientation="Horizontal"
+                                                    HorizontalAlignment="Right">
+                                            <Button Content="⚙" Style="{StaticResource SecondaryButtonStyle}"
+                                                    Height="28" Width="28" Padding="0" FontSize="16"
+                                                    Margin="0,0,4,0" ToolTip="编辑"
+                                                    Click="EditProfile_Click"
+                                                    Tag="{Binding}" />
+                                            <Button Content="🗑" Style="{StaticResource DangerButtonStyle}"
+                                                    Height="28" Width="28" Padding="0" FontSize="16"
+                                                    ToolTip="删除"
+                                                    Click="DeleteProfile_Click"
+                                                    Tag="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Empty state -->
+                    <Border x:Name="EmptyState" Style="{StaticResource InfoCardStyle}"
+                            Visibility="Collapsed" Margin="0,40,0,0">
+                        <StackPanel HorizontalAlignment="Center" Margin="40">
+                            <TextBlock FontSize="40" Foreground="{StaticResource TextTertiaryBrush}"
+                                       HorizontalAlignment="Center" Margin="0,0,0,16">⌨</TextBlock>
+                            <TextBlock FontSize="16" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       HorizontalAlignment="Center" Margin="0,0,0,8">还没有配置</TextBlock>
+                            <TextBlock FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"
+                                       HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                                       MaxWidth="320">
+                                为你的第一个窗口创建一套快捷键。&#x0a;例如：在 ChatGPT 中按 F8 自动输入"继续"。
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Settings Page -->
+                <StackPanel x:Name="PageSettings" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource PageTitleStyle}">设置</TextBlock>
+                    <TextBlock Style="{StaticResource PageDescriptionStyle}">
+                        配置 ContextKeys 的全局行为。
+                    </TextBlock>
+
+                    <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitleStyle}">常规</TextBlock>
+
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center">
+                                    开机自动启动
+                                </TextBlock>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}"
+                                          IsChecked="{Binding Settings.StartOnBoot}" />
+                            </Grid>
+
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock FontSize="14" Foreground="{StaticResource TextPrimaryBrush}">切换配置时显示提示</TextBlock>
+                                    <TextBlock FontSize="12" Foreground="{StaticResource TextTertiaryBrush}">切换窗口后右下角显示当前配置</TextBlock>
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}"
+                                          IsChecked="{Binding Settings.ShowProfileToast}" />
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock FontSize="14" Foreground="{StaticResource TextPrimaryBrush}">关闭窗口时最小化到托盘</TextBlock>
+                                </StackPanel>
+                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}"
+                                          IsChecked="{Binding Settings.MinimizeToTray}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitleStyle}">输入</TextBlock>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="120" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,12,0">按键间隔 (ms)</TextBlock>
+                                <TextBox Grid.Column="1" Style="{StaticResource FormTextBoxStyle}"
+                                         Text="{Binding Settings.InputIntervalMs}"
+                                         Height="32" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource InfoCardStyle}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" FontSize="20" Foreground="{StaticResource InfoBrush}"
+                                       VerticalAlignment="Top" Margin="0,0,12,0">ℹ</TextBlock>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}"
+                                           Margin="0,0,0,4">安全</TextBlock>
+                                <TextBlock FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap">
+                                    ContextKeys 仅在本地监听用户设置的快捷键，不记录日常输入内容。
+                                </TextBlock>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- About Page -->
+                <StackPanel x:Name="PageAbout" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource PageTitleStyle}">关于</TextBlock>
+
+                    <Border Style="{StaticResource CardStyle}" Margin="0,20,0,0">
+                        <StackPanel HorizontalAlignment="Center" Margin="40,20">
+                            <TextBlock FontSize="32" FontWeight="Bold"
+                                       Foreground="{StaticResource PrimaryBrush}"
+                                       HorizontalAlignment="Center">ContextKeys</TextBlock>
+                            <TextBlock FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"
+                                       HorizontalAlignment="Center" Margin="0,4,0,0">
+                                Smart shortcuts for every app.
+                            </TextBlock>
+
+                            <Rectangle Height="1" Fill="{StaticResource DividerBrush}" Margin="0,20" />
+
+                            <TextBlock FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"
+                                       HorizontalAlignment="Center" Margin="0,0,0,4">
+                                版本号：0.1.0
+                            </TextBlock>
+                            <TextBlock FontSize="13" Foreground="{StaticResource TextTertiaryBrush}"
+                                       HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                                       MaxWidth="360" Margin="0,0,0,20">
+                                本工具仅在本地运行，不上传快捷键或输入内容。
+                            </TextBlock>
+
+                            <Button Style="{StaticResource SecondaryButtonStyle}"
+                                    Height="32" Padding="16,0" FontSize="13"
+                                    HorizontalAlignment="Center"
+                                    Click="OpenConfigFolder_Click">
+                                打开配置文件位置
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+    </Grid>
+</Window>

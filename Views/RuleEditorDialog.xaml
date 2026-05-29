@@ -1,0 +1,147 @@
+<Window x:Class="ContextKeys.Views.RuleEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="添加快捷键规则" Width="600" Height="580"
+        MinWidth="500" MinHeight="480"
+        Background="{StaticResource AppBackgroundBrush}"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
+        ResizeMode="CanResizeWithGrip"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        KeyUp="Window_KeyUp">
+    <Border Padding="24" Background="{StaticResource AppBackgroundBrush}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageTitleStyle}">快捷键规则</TextBlock>
+
+                    <!-- Rule Name -->
+                    <StackPanel Margin="0,16,0,0">
+                        <TextBlock Style="{StaticResource SubSectionTitleStyle}">规则名称</TextBlock>
+                        <Grid>
+                            <TextBox x:Name="RuleNameBox" Style="{StaticResource FormTextBoxStyle}"
+                                     Text="" TextChanged="RuleNameBox_TextChanged"
+                                     GotFocus="RuleNameBox_GotFocus"
+                                     LostFocus="RuleNameBox_LostFocus" />
+                            <TextBlock x:Name="RuleNameHint" FontSize="14"
+                                       Foreground="{StaticResource TextTertiaryBrush}"
+                                       VerticalAlignment="Center" Margin="14,0,0,0"
+                                       IsHitTestVisible="False"
+                                       Text="自定义 / 录入快捷键后自动生成" />
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Trigger Key -->
+                    <StackPanel Margin="0,16,0,0">
+                        <TextBlock Style="{StaticResource SubSectionTitleStyle}">触发键</TextBlock>
+                        <Border x:Name="HotkeyCaptureBox"
+                                Style="{StaticResource InfoCardStyle}" Cursor="Hand"
+                                Height="44" Padding="16,0"
+                                MouseLeftButtonDown="HotkeyCapture_Click">
+                            <Grid>
+                                <TextBlock x:Name="HotkeyPlaceholder" FontSize="14"
+                                           Foreground="{StaticResource TextTertiaryBrush}"
+                                           VerticalAlignment="Center"
+                                           Visibility="Visible">
+                                    点击后按下任意按键或组合键...
+                                </TextBlock>
+                                <Border x:Name="HotkeyDisplayBox" Style="{StaticResource KeycapStyle}"
+                                        Height="28" VerticalAlignment="Center"
+                                        HorizontalAlignment="Left"
+                                        Visibility="Collapsed">
+                                    <TextBlock x:Name="HotkeyDisplayText" Style="{StaticResource KeycapTextStyle}" FontSize="14" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <TextBlock x:Name="HotkeyWarning" FontSize="12"
+                                   Foreground="{StaticResource WarningBrush}"
+                                   Margin="0,4,0,0"
+                                   Visibility="Collapsed">
+                            该按键可能被系统保留，无法稳定绑定。请更换其他按键。
+                        </TextBlock>
+
+
+                    </StackPanel>
+
+                    <!-- Options -->
+                    <StackPanel Margin="0,16,0,0">
+                        <TextBlock Style="{StaticResource SubSectionTitleStyle}">选项</TextBlock>
+                        <CheckBox x:Name="SuppressKeyCheck" IsChecked="True"
+                                  Margin="0,4,0,0" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}">
+                            触发后阻止原始按键传递给当前窗口
+                        </CheckBox>
+                    </StackPanel>
+
+                    <!-- Output Action (single action per rule) -->
+                    <StackPanel Margin="0,20,0,0">
+                        <TextBlock Style="{StaticResource SubSectionTitleStyle}">输出动作</TextBlock>
+
+                        <!-- Show recorded action if any -->
+                        <Border x:Name="ActionPreview" Style="{StaticResource CardStyle}"
+                                Margin="0,0,0,12" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" x:Name="ActionTypeLabel"
+                                        Style="{StaticResource ActionLabelSequenceStyle}"
+                                        VerticalAlignment="Center" Margin="0,0,8,0">
+                                    <TextBlock x:Name="ActionTypeText" Style="{StaticResource ActionLabelSequenceTextStyle}" />
+                                </Border>
+                                <TextBlock Grid.Column="1" x:Name="ActionDisplayText" FontSize="13"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Button Grid.Column="2" Content="✕" Style="{StaticResource SecondaryButtonStyle}"
+                                        Height="24" Width="24" Padding="0" FontSize="12"
+                                        Click="ClearAction_Click" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Recording indicator -->
+                        <Border x:Name="SequenceStatus" Style="{StaticResource InfoCardStyle}"
+                                Margin="0,0,0,12" Visibility="Collapsed"
+                                BorderBrush="{StaticResource WarningBrush}"
+                                Background="#FFFBEB">
+                            <StackPanel>
+                                <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#92400E"
+                                           Margin="0,0,0,4">🔴 正在录制——直接敲键盘</TextBlock>
+                                <TextBlock x:Name="SequenceStatusText" FontSize="13"
+                                           Foreground="{StaticResource TextSecondaryBrush}">
+                                    请依次按下要输出的按键。按 Esc 完成录制，按住组合键可录制同时输出。
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <Button x:Name="RecordBtn" Style="{StaticResource PrimaryButtonStyle}"
+                                Height="32" Padding="12,0" FontSize="13"
+                                Width="160" HorizontalAlignment="Left"
+                                Click="RecordAction_Click">🎙 录制输出</Button>
+                        <TextBlock x:Name="RecordHint" FontSize="12"
+                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                   Margin="0,4,0,0" Visibility="Collapsed">
+                            Esc 或点击上方按钮完成录制
+                        </TextBlock>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Bottom Buttons -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                        Margin="0,16,0,0">
+                <Button Style="{StaticResource SecondaryButtonStyle}"
+                        Width="80" Margin="0,0,8,0"
+                        Click="Cancel_Click">取消</Button>
+                <Button x:Name="SaveBtn" Style="{StaticResource PrimaryButtonStyle}"
+                        Width="80"
+                        Click="Save_Click">保存</Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

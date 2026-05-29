@@ -1,0 +1,79 @@
+<Window x:Class="ContextKeys.Views.WindowPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="绑定窗口" Width="640" Height="520"
+        Background="{StaticResource AppBackgroundBrush}"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize">
+    <Border Padding="24" Background="{StaticResource AppBackgroundBrush}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <TextBlock Grid.Row="0" Style="{StaticResource PageTitleStyle}">绑定窗口</TextBlock>
+
+            <!-- Description -->
+            <TextBlock Grid.Row="1" Style="{StaticResource PageDescriptionStyle}">
+                选择一个当前打开的窗口。以后切换到该窗口时，会自动启用这套快捷键配置。
+            </TextBlock>
+
+            <!-- Window List -->
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="WindowList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border x:Name="ItemBorder" Style="{StaticResource ListItemStyle}"
+                                    Margin="0,0,0,8" Cursor="Hand"
+                                    MouseLeftButtonDown="WindowItem_Click"
+                                    Tag="{Binding}">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Text="{Binding Title}" />
+                                    <TextBlock Grid.Row="1" FontSize="12"
+                                               Foreground="{StaticResource TextTertiaryBrush}"
+                                               Margin="0,2,0,0"
+                                               Text="{Binding ProcessName}" />
+                                </Grid>
+                            </Border>
+
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- Bottom Buttons -->
+            <Grid Grid.Row="3" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Style="{StaticResource SecondaryButtonStyle}"
+                        Height="32" Padding="12,0" FontSize="13"
+                        HorizontalAlignment="Left"
+                        Click="Refresh_Click">刷新列表</Button>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Style="{StaticResource SecondaryButtonStyle}"
+                            Height="32" Padding="16,0" FontSize="13"
+                            Margin="0,0,8,0"
+                            Click="Cancel_Click">取消</Button>
+                    <Button x:Name="BindBtn" Style="{StaticResource PrimaryButtonStyle}"
+                            Height="32" Padding="16,0" FontSize="13"
+                            IsEnabled="False"
+                            Click="Bind_Click">绑定</Button>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
