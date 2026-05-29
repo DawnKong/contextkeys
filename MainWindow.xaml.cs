@@ -179,7 +179,15 @@ public partial class MainWindow : Window
     {
         base.OnStateChanged(e);
 
-        if (WindowState == WindowState.Minimized && App.ConfigService.Settings.Settings.MinimizeToTray)
+        // Don't hide to tray while modal dialogs are open — it would break
+        // the modality chain and cause child windows to disappear.
+        var hasModalWindows = Application.Current.Windows
+            .Cast<Window>()
+            .Any(w => w != this && w.IsVisible && w.Owner == this);
+
+        if (WindowState == WindowState.Minimized
+            && App.ConfigService.Settings.Settings.MinimizeToTray
+            && !hasModalWindows)
         {
             Hide();
             ShowTrayIcon();
