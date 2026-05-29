@@ -179,6 +179,9 @@ public partial class RuleEditorDialog : Window
             }
             ShowActionPreview(_savedAction);
         }
+        // Update test interceptor with new action
+        if (TestArea.Visibility == Visibility.Visible)
+            ShowTestArea();
     }
 
     private void ClearAction_Click(object sender, RoutedEventArgs e)
@@ -250,6 +253,36 @@ public partial class RuleEditorDialog : Window
 
         TestKeycapText.Text = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
         TestArea.Visibility = Visibility.Visible;
+
+        // Enable test mode: the trigger key works in ANY window, not just the bound one
+        var expectedKey = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
+        var actions = _savedAction != null
+            ? new List<ActionStep> { _savedAction }
+            : new List<ActionStep>();
+
+        KeyboardHookService.TestInterceptor = (keyCombo, _) =>
+        {
+            if (!string.Equals(keyCombo, expectedKey, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Execute the test output to the current foreground window
+            if (actions.Count > 0)
+            {
+                SafeExecutionGuard.TryEnter();
+                try { App.InputSimService.ExecuteActions(actions); }
+                finally { SafeExecutionGuard.Exit(); }
+            }
+
+            Dispatcher.Invoke(() =>
+            {
+                var preview = _savedAction != null
+                    ? FormatActionForPreview(_savedAction)
+                    : "";
+                TestOutputBox.Text = $"已触发: {preview}";
+            });
+
+            return true; // Suppress the original key
+        };
     }
 
     private void TestKeycap_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -393,6 +426,7 @@ public partial class RuleEditorDialog : Window
     protected override void OnClosed(EventArgs e)
     {
         CleanupMessageFilter();
+        KeyboardHookService.TestInterceptor = null;
         base.OnClosed(e);
     }
 
