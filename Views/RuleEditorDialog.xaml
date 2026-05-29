@@ -159,7 +159,7 @@
                                 </Grid>
                                 <TextBlock FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
                                            Margin="0,4,0,0">
-                                    切换到任意窗口按下触发键，将实际执行输出到该窗口（测试模式）。
+                                    点左侧 [F8] 或按键盘触发键，输出将键入到上方文本框。
                                 </TextBlock>
                             </StackPanel>
                         </Border>

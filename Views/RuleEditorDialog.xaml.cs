@@ -254,32 +254,38 @@ public partial class RuleEditorDialog : Window
         TestKeycapText.Text = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
         TestArea.Visibility = Visibility.Visible;
 
-        // Enable test mode: the trigger key works in ANY window, not just the bound one
+        // Enable test mode: pressing the trigger key types into the test TextBox
         var expectedKey = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
-        var actions = _savedAction != null
-            ? new List<ActionStep> { _savedAction }
-            : new List<ActionStep>();
 
         KeyboardHookService.TestInterceptor = (keyCombo, _) =>
         {
             if (!string.Equals(keyCombo, expectedKey, StringComparison.OrdinalIgnoreCase))
                 return false;
 
-            // Execute the test output to the current foreground window
-            if (actions.Count > 0)
-            {
-                SafeExecutionGuard.TryEnter();
-                try { App.InputSimService.ExecuteActions(actions); }
-                finally { SafeExecutionGuard.Exit(); }
-            }
-
+            // Focus the test box on UI thread, then execute on background thread
             Dispatcher.Invoke(() =>
             {
-                var preview = _savedAction != null
-                    ? FormatActionForPreview(_savedAction)
-                    : "";
-                TestOutputBox.Text = $"已触发: {preview}";
+                TestOutputBox.Clear();
+                TestOutputBox.Focus();
             });
+
+            // Execute output in background so Thread.Sleep doesn't block UI
+            if (_savedAction != null)
+            {
+                var action = _savedAction;
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    if (!SafeExecutionGuard.TryEnter()) return;
+                    try
+                    {
+                        App.InputSimService.ExecuteActions(new List<ActionStep> { action });
+                    }
+                    finally
+                    {
+                        SafeExecutionGuard.Exit();
+                    }
+                });
+            }
 
             return true; // Suppress the original key
         };
