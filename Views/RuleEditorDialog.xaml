@@ -155,10 +155,7 @@
                                     <TextBox Grid.Column="2" x:Name="TestOutputBox"
                                              Style="{StaticResource FormTextBoxStyle}"
                                              VerticalAlignment="Center"
-                                             IsReadOnly="True"
-                                             IsHitTestVisible="False"
-                                             Background="{StaticResource SecondarySurfaceBrush}"
-                                             Text="点击左侧触发键预览输出" />
+                                             Text="" />
                                 </Grid>
                                 <TextBlock FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
                                            Margin="0,4,0,0">
