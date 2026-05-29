@@ -17,6 +17,10 @@ public class KeyboardHookService : IDisposable
     private readonly Dictionary<string, DateTime> _lastTriggerTime = new();
     private static readonly TimeSpan DebounceInterval = TimeSpan.FromMilliseconds(300);
 
+    // Pending trigger: matched on KEYDOWN, fires on KEYUP of the main key
+    private HotkeyRule? _pendingRule;
+    private string? _pendingMainKey; // The non-modifier key that must go up to fire
+
     public KeyboardHookService()
     {
         _hookProc = HookCallback;
@@ -87,13 +91,8 @@ public class KeyboardHookService : IDisposable
         if (_paused || _currentProfile == null || !_currentProfile.Enabled)
             return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
 
-        // Skip if currently executing (anti-recursion)
-        if (SafeExecutionGuard.IsExecuting)
-            return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
-
-        // Only process keydown events
-        if (wParam != (nint)Win32Api.WM_KEYDOWN && wParam != (nint)Win32Api.WM_SYSKEYDOWN)
-            return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
+        var isKeyDown = wParam == (nint)Win32Api.WM_KEYDOWN || wParam == (nint)Win32Api.WM_SYSKEYDOWN;
+        var isKeyUp = wParam == (nint)Win32Api.WM_KEYUP || wParam == (nint)Win32Api.WM_SYSKEYUP;
 
         var hookStruct = Marshal.PtrToStructure<Win32Api.KBDLLHOOKSTRUCT>(lParam);
 
@@ -101,42 +100,57 @@ public class KeyboardHookService : IDisposable
         if (hookStruct.dwExtraInfo == Win32Api.INJECTED_BY_APP)
             return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
 
-        // Check modifiers
-        var modifiers = GetCurrentModifiers();
         var keyName = KeyCodeMapper.GetKeyName((byte)hookStruct.vkCode);
-        var fullKey = BuildKeyString(keyName, modifiers);
 
-        Logger.Info($"按键: {fullKey} | 缓存规则数: {_cachedRules.Count} | 当前配置: {_currentProfile?.Name}");
-
-        // ── Test interceptor check (BEFORE cached rules, so unsaved rules work) ──
-        if (TestInterceptor != null && TestInterceptor(fullKey, null!))
+        // ── KEYUP: fire pending trigger ──
+        if (isKeyUp && _pendingRule != null && _pendingMainKey != null)
         {
-            Logger.Info($"✓ 测试拦截器已处理: {fullKey}");
-            return new nint(1); // Suppress the key so it doesn't reach the target window
+            if (string.Equals(keyName, _pendingMainKey, StringComparison.OrdinalIgnoreCase))
+            {
+                // Modifiers are already released (or being released) — safe to fire
+                Logger.Info($"✓ 触发（全部键已松开）: {_pendingRule.Name} → {_pendingRule.Actions.Count} 个动作");
+                HotkeyTriggered?.Invoke(_pendingRule);
+            }
+            _pendingRule = null;
+            _pendingMainKey = null;
+            return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
         }
 
-        if (_cachedRules.TryGetValue(fullKey, out var rules))
+        // ── KEYDOWN: check for match, store as pending ──
+        if (isKeyDown)
         {
-            // Debounce: skip repeated triggers of the same key within the debounce interval
-            var now = DateTime.UtcNow;
-            if (_lastTriggerTime.TryGetValue(fullKey, out var lastTime) &&
-                (now - lastTime) < DebounceInterval)
+            var modifiers = GetCurrentModifiers();
+            var fullKey = BuildKeyString(keyName, modifiers);
+
+            Logger.Info($"按键: {fullKey} | 缓存规则数: {_cachedRules.Count} | 当前配置: {_currentProfile?.Name}");
+
+            // Test interceptor check
+            if (TestInterceptor != null && TestInterceptor(fullKey, null!))
             {
-                return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
-            }
-            _lastTriggerTime[fullKey] = now;
-
-            Logger.Info($"✓ 匹配: {rules[0].Name} → {rules[0].Actions.Count} 个动作");
-
-            // Fire all matching rules for this key
-            foreach (var rule in rules)
-            {
-                HotkeyTriggered?.Invoke(rule);
-            }
-
-            // Suppress original key if needed
-            if (rules.Count > 0 && rules[0].SuppressOriginalKey)
+                Logger.Info($"✓ 测试拦截器已处理: {fullKey}");
                 return new nint(1);
+            }
+
+            if (_cachedRules.TryGetValue(fullKey, out var rules))
+            {
+                var now = DateTime.UtcNow;
+                if (_lastTriggerTime.TryGetValue(fullKey, out var lastTime) &&
+                    (now - lastTime) < DebounceInterval)
+                {
+                    return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
+                }
+                _lastTriggerTime[fullKey] = now;
+
+                Logger.Info($"✓ 待触发（等待松键）: {rules[0].Name} → {rules[0].Actions.Count} 个动作");
+
+                // Store pending rule — will fire on KEYUP of the main (non-modifier) key
+                _pendingRule = rules[0];
+                _pendingMainKey = keyName;
+
+                // Suppress the original key (and modifiers) so the target window doesn't see them
+                if (rules[0].SuppressOriginalKey)
+                    return new nint(1);
+            }
         }
 
         return Win32Api.CallNextHookEx(_hookId, nCode, wParam, lParam);
