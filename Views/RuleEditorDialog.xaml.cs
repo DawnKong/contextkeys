@@ -101,11 +101,6 @@ public partial class RuleEditorDialog : Window
 
     // ── Output action recording ──
 
-    private void TestOutputBox_GotFocus(object sender, RoutedEventArgs e)
-    {
-        CancelAllCaptures();
-    }
-
     private void InputField_GotFocus(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         CancelAllCaptures();
