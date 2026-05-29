@@ -160,7 +160,6 @@ public partial class RuleEditorDialog : Window
             }
             ShowActionPreview(_savedAction);
         }
-        ShowTestArea();
     }
 
     private void ClearAction_Click(object sender, RoutedEventArgs e)
@@ -232,15 +231,9 @@ public partial class RuleEditorDialog : Window
 
         TestKeycapText.Text = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
         TestArea.Visibility = Visibility.Visible;
-        UpdateTestOutput();
     }
 
     private void TestKeycap_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        UpdateTestOutput();
-    }
-
-    private void UpdateTestOutput()
     {
         var preview = _savedAction != null
             ? FormatActionForPreview(_savedAction)
