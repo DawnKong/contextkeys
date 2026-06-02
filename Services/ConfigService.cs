@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Windows;
 using ContextKeys.Models;
 
 namespace ContextKeys.Services;
@@ -17,14 +18,62 @@ public class ConfigService
 
     public ConfigService()
     {
-        _configDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "ContextKeys");
+        _configDir = GetConfigDirectory();
         _configPath = Path.Combine(_configDir, "config.json");
         _settings = LoadInternal();
     }
 
+    private static string GetConfigDirectory()
+    {
+        // 优先使用 AppData 目录
+        var appDataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "ContextKeys");
+
+        // 检查是否可写
+        if (IsDirectoryWritable(appDataDir))
+            return appDataDir;
+
+        // 回退到程序目录
+        var exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+        if (!string.IsNullOrEmpty(exeDir))
+        {
+            var localDir = Path.Combine(exeDir, "config");
+            try
+            {
+                Directory.CreateDirectory(localDir);
+                if (IsDirectoryWritable(localDir))
+                    return localDir;
+            }
+            catch
+            {
+                // 忽略错误，继续尝试其他方案
+            }
+        }
+
+        // 最后的回退：临时目录
+        return Path.Combine(Path.GetTempPath(), "ContextKeys");
+    }
+
+    private static bool IsDirectoryWritable(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(path);
+            var testFile = Path.Combine(path, Guid.NewGuid().ToString() + ".tmp");
+            File.WriteAllText(testFile, "test");
+            File.Delete(testFile);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public AppSettings Settings => _settings;
+
+    public string ConfigDirectory => _configDir;
 
     public event Action<AppSettings>? SettingsChanged;
 
@@ -123,6 +172,4 @@ public class ConfigService
 
         return settings;
     }
-
-    public string GetConfigDirectory() => _configDir;
 }

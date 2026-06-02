@@ -19,7 +19,7 @@
 
                     <!-- Profile Name -->
                     <StackPanel Margin="0,16,0,0">
-                        <TextBlock Style="{StaticResource SubSectionTitleStyle}">配置名称</TextBlock>
+                        <TextBlock Style="{StaticResource SubSectionTitleStyle}">配置名称 - 支持自动生成</TextBlock>
                         <Grid>
                             <TextBox x:Name="ProfileNameBox" Style="{StaticResource FormTextBoxStyle}"
                                      Text="" TextChanged="ProfileNameBox_TextChanged"
@@ -44,19 +44,35 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
 
-                                <TextBlock Grid.Row="0" Grid.Column="0" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,8" VerticalAlignment="Center">应用</TextBlock>
-                                <TextBlock Grid.Row="0" Grid.Column="1" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8">
+                                <TextBlock Grid.Row="0" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,4">
                                     <Run x:Name="WinProcessName" Text="-" />
                                 </TextBlock>
 
-                                <TextBlock Grid.Row="1" Grid.Column="0" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,12,8" VerticalAlignment="Center">标题关键词</TextBlock>
-                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="TitleContainsBox" Style="{StaticResource FormTextBoxStyle}"
-                                         Height="32" Margin="0,0,0,8" />
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,8,0" VerticalAlignment="Center">标题</TextBlock>
+                                    <Grid Grid.Column="1">
+                                        <TextBox x:Name="TitleContainsBox" Style="{StaticResource FormTextBoxStyle}"
+                                                 Height="32"
+                                                 TextChanged="TitleContainsBox_TextChanged" />
+                                        <TextBlock x:Name="TitleContainsHint" FontSize="13"
+                                                   Foreground="{StaticResource TextTertiaryBrush}"
+                                                   VerticalAlignment="Center" Margin="14,0,0,0"
+                                                   IsHitTestVisible="False"
+                                                   Text="可选，留空则匹配该应用所有窗口" />
+                                    </Grid>
+                                </Grid>
+
+                                <TextBlock x:Name="TitleEmptyHint" Grid.Row="2" FontSize="12"
+                                           Foreground="{StaticResource TextTertiaryBrush}"
+                                           Margin="28,4,0,0"
+                                           Visibility="Visible">
+                                    标题留空则匹配该应用所有窗口
+                                </TextBlock>
                             </Grid>
                         </Border>
 
@@ -143,10 +159,10 @@
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
                         Margin="0,16,0,0">
                 <Button Style="{StaticResource SecondaryButtonStyle}"
-                        Width="80" Margin="0,0,8,0"
+                        Padding="20,0" Margin="0,0,8,0"
                         Click="Cancel_Click">取消</Button>
                 <Button Style="{StaticResource PrimaryButtonStyle}"
-                        Width="80"
+                        Padding="20,0"
                         Click="Save_Click">保存</Button>
             </StackPanel>
         </Grid>

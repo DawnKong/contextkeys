@@ -32,3 +32,23 @@ public class InverseBooleanToVisibilityConverter : IValueConverter
         return value is Visibility v && v != Visibility.Visible;
     }
 }
+
+[ValueConversion(typeof(string), typeof(bool))]
+public class StringEqualsConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+    {
+        var strValue = value as string;
+        var strParameter = parameter as string;
+        return string.Equals(strValue, strParameter, StringComparison.Ordinal);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+    {
+        if (value is bool boolValue && boolValue)
+        {
+            return parameter as string ?? "";
+        }
+        return System.Windows.Data.Binding.DoNothing;
+    }
+}

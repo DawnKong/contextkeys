@@ -1,6 +1,7 @@
 using System.Windows;
 using ContextKeys.Models;
 using ContextKeys.Services;
+using ContextKeys.Utils;
 
 namespace ContextKeys.Views;
 
@@ -8,6 +9,7 @@ public partial class ProfileEditorWindow : Window
 {
     private readonly Profile _original;
     private readonly List<HotkeyRule> _rules = new();
+    private bool _userHasCustomName;
 
     public Profile? ResultProfile { get; private set; }
 
@@ -15,6 +17,7 @@ public partial class ProfileEditorWindow : Window
     public ProfileEditorWindow()
     {
         InitializeComponent();
+        SetIcon();
         _original = new Profile { Name = "新配置" };
         ProfileNameBox.Text = string.Empty;
         UpdateProfileHint();
@@ -25,9 +28,12 @@ public partial class ProfileEditorWindow : Window
     public ProfileEditorWindow(Profile profile)
     {
         InitializeComponent();
+        SetIcon();
         _original = profile ?? throw new ArgumentNullException(nameof(profile));
 
-        ProfileNameBox.Text = profile.Name ?? string.Empty;
+        var profileName = profile.Name ?? string.Empty;
+        ProfileNameBox.Text = profileName;
+        _userHasCustomName = !string.IsNullOrWhiteSpace(profileName);
         UpdateProfileHint();
         Title = "编辑配置";
 
@@ -35,6 +41,7 @@ public partial class ProfileEditorWindow : Window
         var match = profile.Match ?? new WindowMatch();
         WinProcessName.Text = string.IsNullOrEmpty(match.ProcessName) ? "-" : match.ProcessName;
         TitleContainsBox.Text = match.TitleContains ?? string.Empty;
+        UpdateTitleContainsHint();
 
         // Copy rules (defensive)
         if (profile.Rules != null)
@@ -50,6 +57,10 @@ public partial class ProfileEditorWindow : Window
 
     private void ProfileNameBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
+        if (!_userHasCustomName && !string.IsNullOrWhiteSpace(ProfileNameBox.Text))
+        {
+            _userHasCustomName = true;
+        }
         UpdateProfileHint();
     }
 
@@ -70,6 +81,18 @@ public partial class ProfileEditorWindow : Window
             : Visibility.Collapsed;
     }
 
+    private void TitleContainsBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        UpdateTitleContainsHint();
+    }
+
+    private void UpdateTitleContainsHint()
+    {
+        TitleContainsHint.Visibility = string.IsNullOrEmpty(TitleContainsBox.Text)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
     private void BindWindow_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new WindowPickerDialog();
@@ -79,18 +102,22 @@ public partial class ProfileEditorWindow : Window
             WinProcessName.Text = info.ProcessName;
             TitleContainsBox.Text = info.Title;
 
-            // Auto-fill profile name if it's still empty
-            if (string.IsNullOrWhiteSpace(ProfileNameBox.Text))
+            // Auto-fill profile name with app name only if user hasn't customized it
+            if (!_userHasCustomName)
             {
-                ProfileNameBox.Text = $"{info.ProcessName} - {info.Title}";
+                ProfileNameBox.Text = info.ProcessName;
+                _userHasCustomName = true;
                 UpdateProfileHint();
             }
+
+            UpdateTitleContainsHint();
         }
     }
 
     private void AddRule_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new RuleEditorDialog(_rules);
+        var isGlobal = WinProcessName.Text == "*";
+        var dialog = new RuleEditorDialog(_rules, isGlobal);
         if (dialog.ShowDialog() == true && dialog.ResultRule != null)
         {
             _rules.Add(dialog.ResultRule);
@@ -102,7 +129,8 @@ public partial class ProfileEditorWindow : Window
     {
         if (sender is FrameworkElement fe && fe.Tag is HotkeyRule rule)
         {
-            var dialog = new RuleEditorDialog(rule, _rules);
+            var isGlobal = WinProcessName.Text == "*";
+            var dialog = new RuleEditorDialog(rule, _rules, isGlobal);
             if (dialog.ShowDialog() == true && dialog.ResultRule != null)
             {
                 var index = _rules.IndexOf(rule);
@@ -137,18 +165,37 @@ public partial class ProfileEditorWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(WinProcessName.Text) || WinProcessName.Text == "-")
+        {
+            var dialog = new UnboundConfirmDialog();
+            if (dialog.ShowDialog() == true)
+            {
+                if (dialog.ShouldBind)
+                {
+                    BindWindow_Click(sender, e);
+                    return;
+                }
+
+                WinProcessName.Text = "*";
+                TitleContainsBox.Text = string.Empty;
+                UpdateTitleContainsHint();
+
+                if (!_userHasCustomName)
+                {
+                    ProfileNameBox.Text = "全局设置";
+                    _userHasCustomName = true;
+                }
+            }
+            else
+            {
+                return;
+            }
+        }
+
         var name = ProfileNameBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
-            MessageBox.Show("请输入配置名称。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-            ProfileNameBox.Focus();
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(WinProcessName.Text) || WinProcessName.Text == "-")
-        {
-            MessageBox.Show("请先绑定窗口。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
+            name = "新配置";
         }
 
         // Check for duplicate profile name (only for new profiles or name changes)
@@ -187,5 +234,23 @@ public partial class ProfileEditorWindow : Window
     {
         DialogResult = false;
         Close();
+    }
+
+    private void SetIcon()
+    {
+        try
+        {
+            var icoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LKey.ico");
+            if (!File.Exists(icoPath)) return;
+            using var fs = new FileStream(icoPath, FileMode.Open, FileAccess.Read);
+            using var ico = new System.Drawing.Icon(fs);
+            var bmp = ico.ToBitmap();
+            var hbmp = bmp.GetHbitmap();
+            Icon = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                hbmp, IntPtr.Zero, System.Windows.Int32Rect.Empty,
+                System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+            Win32Api.DeleteObject(hbmp);
+        }
+        catch { }
     }
 }

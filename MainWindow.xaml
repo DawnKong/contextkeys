@@ -1,4 +1,4 @@
-﻿<Window x:Class="ContextKeys.MainWindow"
+<Window x:Class="ContextKeys.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:ContextKeys.ViewModels"
@@ -7,6 +7,7 @@
         MinWidth="820" MinHeight="560"
         Background="{StaticResource AppBackgroundBrush}"
         WindowStartupLocation="CenterScreen"
+        Icon="LKey.ico"
         TextOptions.TextFormattingMode="Ideal">
     <Window.DataContext>
         <vm:MainViewModel x:Name="ViewModel" />
@@ -229,7 +230,7 @@
                             <TextBlock FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"
                                        HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
                                        MaxWidth="320">
-                                为你的第一个窗口创建一套快捷键。&#x0a;例如：在 ChatGPT 中按 F8 自动输入"继续"。
+                                为你的窗口创建快捷键配置，提升操作效率。
                             </TextBlock>
                         </StackPanel>
                     </Border>
@@ -255,7 +256,7 @@
                                     开机自动启动
                                 </TextBlock>
                                 <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}"
-                                          IsChecked="{Binding Settings.StartOnBoot}" />
+                                          IsChecked="{Binding Settings.StartOnBoot, Mode=TwoWay}" />
                             </Grid>
 
                             <Grid Margin="0,0,0,12">
@@ -267,8 +268,20 @@
                                     <TextBlock FontSize="14" Foreground="{StaticResource TextPrimaryBrush}">切换配置时显示提示</TextBlock>
                                     <TextBlock FontSize="12" Foreground="{StaticResource TextTertiaryBrush}">切换窗口后右下角显示当前配置</TextBlock>
                                 </StackPanel>
-                                <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}"
-                                          IsChecked="{Binding Settings.ShowProfileToast}" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <ToggleButton Style="{StaticResource SelectorButtonStyle}" Margin="0,0,8,0"
+                                                  IsChecked="{Binding Settings.ToastDisplayMode, Converter={StaticResource StringEqualsConverter}, ConverterParameter=timed}">
+                                        显示3秒
+                                    </ToggleButton>
+                                    <ToggleButton Style="{StaticResource SelectorButtonStyle}" Margin="0,0,8,0"
+                                                  IsChecked="{Binding Settings.ToastDisplayMode, Converter={StaticResource StringEqualsConverter}, ConverterParameter=always}">
+                                        一直显示
+                                    </ToggleButton>
+                                    <ToggleButton Style="{StaticResource SelectorButtonStyle}"
+                                                  IsChecked="{Binding Settings.ToastDisplayMode, Converter={StaticResource StringEqualsConverter}, ConverterParameter=hidden}">
+                                        不显示
+                                    </ToggleButton>
+                                </StackPanel>
                             </Grid>
 
                             <Grid>
@@ -280,7 +293,7 @@
                                     <TextBlock FontSize="14" Foreground="{StaticResource TextPrimaryBrush}">关闭窗口时最小化到托盘</TextBlock>
                                 </StackPanel>
                                 <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitchStyle}"
-                                          IsChecked="{Binding Settings.MinimizeToTray}" />
+                                          IsChecked="{Binding Settings.MinimizeToTray, Mode=TwoWay}" />
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -296,7 +309,7 @@
                                 <TextBlock Grid.Column="0" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}"
                                            VerticalAlignment="Center" Margin="0,0,12,0">按键间隔 (ms)</TextBlock>
                                 <TextBox Grid.Column="1" Style="{StaticResource FormTextBoxStyle}"
-                                         Text="{Binding Settings.InputIntervalMs}"
+                                         Text="{Binding Settings.InputIntervalMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          Height="32" />
                             </Grid>
                         </StackPanel>

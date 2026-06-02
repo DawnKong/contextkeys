@@ -7,12 +7,15 @@ public class ToastService
 {
     private ToastWindow? _currentToast;
 
-    public void ShowProfileToast(Profile profile)
+    public void ShowProfileToast(Profile profile, string displayMode)
     {
+        if (displayMode == "hidden")
+            return;
+
         Application.Current.Dispatcher.Invoke(() =>
         {
             CloseCurrentToast();
-            _currentToast = new ToastWindow(profile);
+            _currentToast = new ToastWindow(profile, displayMode);
             _currentToast.Show();
         });
     }

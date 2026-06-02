@@ -5,6 +5,9 @@ namespace ContextKeys.Utils;
 
 public static class Win32Api
 {
+    [DllImport("gdi32.dll", SetLastError = true)]
+    public static extern bool DeleteObject(nint hObject);
+
     // Window enumeration
     public delegate bool EnumWindowsProc(nint hWnd, nint lParam);
 

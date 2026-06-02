@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using ContextKeys.Models;
@@ -15,6 +16,8 @@ public partial class RuleEditorDialog : Window
 
     private bool _capturingAction;
     private readonly List<string> _actionKeys = new();
+    private bool _isChordMode = false;  // true=同时录制(chord), false=依次录制(sequence)
+    private List<string> _savedChordModifiers = new();  // 保存录制时的修饰键
 
     // Win32 message constants
     private const int WM_KEYDOWN = 0x0100;
@@ -25,23 +28,28 @@ public partial class RuleEditorDialog : Window
     public HotkeyRule? ResultRule { get; private set; }
     private readonly List<HotkeyRule>? _existingRules;
     private readonly string? _editingRuleId;
+    private readonly bool _isGlobalProfile;
 
-    public RuleEditorDialog() : this(null) { }
+    public RuleEditorDialog() : this(null, false) { }
 
-    public RuleEditorDialog(List<HotkeyRule>? existingRules)
+    public RuleEditorDialog(List<HotkeyRule>? existingRules, bool isGlobalProfile = false)
     {
         InitializeComponent();
+        SetIcon();
         Title = "添加快捷键规则";
         _existingRules = existingRules;
+        _isGlobalProfile = isGlobalProfile;
         UpdateRuleHint();
     }
 
-    public RuleEditorDialog(HotkeyRule rule, List<HotkeyRule>? existingRules)
+    public RuleEditorDialog(HotkeyRule rule, List<HotkeyRule>? existingRules, bool isGlobalProfile = false)
     {
         InitializeComponent();
+        SetIcon();
         Title = "编辑快捷键规则";
         _existingRules = existingRules;
         _editingRuleId = rule.Id;
+        _isGlobalProfile = isGlobalProfile;
 
         RuleNameBox.Text = rule.Name;
         SuppressKeyCheck.IsChecked = rule.SuppressOriginalKey;
@@ -51,7 +59,6 @@ public partial class RuleEditorDialog : Window
         var display = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
         HotkeyDisplayText.Text = display;
         HotkeyDisplayBox.Visibility = Visibility.Visible;
-        HotkeyPlaceholder.Visibility = Visibility.Collapsed;
 
         // Load single action
         if (rule.Actions is { Count: > 0 })
@@ -83,18 +90,18 @@ public partial class RuleEditorDialog : Window
 
     // ── Trigger key capture ──
 
-    private void HotkeyCapture_Click(object sender, MouseButtonEventArgs e)
+    private void HotkeyCapture_Click(object sender, RoutedEventArgs e)
     {
         StopActionRecording();
 
         _isCapturingHotkey = !_isCapturingHotkey;
         if (_isCapturingHotkey)
         {
-            HotkeyCaptureBox.Background = (System.Windows.Media.Brush)FindResource("SelectedSurfaceBrush");
-            HotkeyCaptureBox.BorderBrush = (System.Windows.Media.Brush)FindResource("PrimaryBrush");
-            HotkeyPlaceholder.Text = "请按下任意按键或组合键...";
             HotkeyDisplayBox.Visibility = Visibility.Collapsed;
-            HotkeyPlaceholder.Visibility = Visibility.Visible;
+            HotkeyRecordingStatus.Visibility = Visibility.Visible;
+            HotkeyRecordBtn.Content = "✓ 完成录制";
+            HotkeyRecordHint.Visibility = Visibility.Visible;
+            HotkeyWarning.Visibility = Visibility.Collapsed;
             _capturedKey = string.Empty;
             _capturedModifiers.Clear();
             SetCaptureMode(true);
@@ -127,11 +134,10 @@ public partial class RuleEditorDialog : Window
         }
     }
 
-    private void RecordAction_Click(object sender, RoutedEventArgs e)
+    private void RecordSequence_Click(object sender, RoutedEventArgs e)
     {
         if (_capturingAction)
         {
-            // Already recording — finish it
             FinishActionRecording();
             return;
         }
@@ -140,13 +146,42 @@ public partial class RuleEditorDialog : Window
         ResetCaptureBoxUI();
 
         _capturingAction = true;
+        _isChordMode = false;
         _actionKeys.Clear();
+        _savedChordModifiers.Clear();
         _savedAction = null;
         ActionPreview.Visibility = Visibility.Collapsed;
 
         SequenceStatus.Visibility = Visibility.Visible;
-        SequenceStatusText.Text = "正在录制… 按 Esc 或点击「✓ 完成录制」结束。";
-        RecordBtn.Content = "✓ 完成录制";
+        SequenceStatusText.Text = "单键依次输出… 按下要输出的按键，按 Esc 完成";
+        RecordSequenceBtn.Content = "✓ 完成";
+        RecordChordBtn.IsEnabled = false;
+        RecordHint.Visibility = Visibility.Visible;
+        SetCaptureMode(true);
+    }
+
+    private void RecordChord_Click(object sender, RoutedEventArgs e)
+    {
+        if (_capturingAction)
+        {
+            FinishActionRecording();
+            return;
+        }
+
+        _isCapturingHotkey = false;
+        ResetCaptureBoxUI();
+
+        _capturingAction = true;
+        _isChordMode = true;
+        _actionKeys.Clear();
+        _savedChordModifiers.Clear();
+        _savedAction = null;
+        ActionPreview.Visibility = Visibility.Collapsed;
+
+        SequenceStatus.Visibility = Visibility.Visible;
+        SequenceStatusText.Text = "多键同时输出… 按住修饰键+按键，按 Esc 完成";
+        RecordSequenceBtn.IsEnabled = false;
+        RecordChordBtn.Content = "✓ 完成";
         RecordHint.Visibility = Visibility.Visible;
         SetCaptureMode(true);
     }
@@ -155,17 +190,19 @@ public partial class RuleEditorDialog : Window
     {
         _capturingAction = false;
         SequenceStatus.Visibility = Visibility.Collapsed;
-        RecordBtn.Content = "🎙 录制输出";
+        RecordSequenceBtn.Content = "单键依次输出";
+        RecordChordBtn.Content = "多键同时输出";
+        RecordSequenceBtn.IsEnabled = true;
+        RecordChordBtn.IsEnabled = true;
         RecordHint.Visibility = Visibility.Collapsed;
         SetCaptureMode(false);
 
         if (_actionKeys.Count > 0)
         {
-            var modifierKeys = GetModifiersFromKeyboard();
-            if (modifierKeys.Count > 0)
+            if (_isChordMode)
             {
                 var chordKeys = new List<string>();
-                chordKeys.AddRange(modifierKeys);
+                chordKeys.AddRange(_savedChordModifiers);
                 chordKeys.AddRange(_actionKeys);
                 _savedAction = new ActionStep
                 {
@@ -186,8 +223,9 @@ public partial class RuleEditorDialog : Window
             }
             ShowActionPreview(_savedAction);
         }
-        // Update test interceptor with new action
-        if (TestArea.Visibility == Visibility.Visible)
+
+        // Show test area after action recording is complete
+        if (_savedAction != null && !string.IsNullOrEmpty(_capturedKey))
             ShowTestArea();
     }
 
@@ -202,7 +240,10 @@ public partial class RuleEditorDialog : Window
     {
         _capturingAction = false;
         SequenceStatus.Visibility = Visibility.Collapsed;
-        RecordBtn.Content = "🎙 录制输出";
+        RecordSequenceBtn.Content = "单键依次输出";
+        RecordChordBtn.Content = "多键同时输出";
+        RecordSequenceBtn.IsEnabled = true;
+        RecordChordBtn.IsEnabled = true;
         RecordHint.Visibility = Visibility.Collapsed;
         SetCaptureMode(false);
     }
@@ -247,18 +288,38 @@ public partial class RuleEditorDialog : Window
         key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
             or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin;
 
+    private void AutoScrollToEnd(ScrollViewer scrollViewer)
+    {
+        if (scrollViewer == null || scrollViewer.ScrollableWidth <= 0) return;
+
+        Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            scrollViewer.ScrollToRightEnd();
+        }), System.Windows.Threading.DispatcherPriority.ContextIdle);
+    }
+
     private void UpdateHotkeyPreview(string display)
     {
         HotkeyDisplayText.Text = display;
         HotkeyDisplayBox.Visibility = Visibility.Visible;
-        HotkeyPlaceholder.Visibility = Visibility.Collapsed;
+        HotkeyRecordingStatus.Visibility = Visibility.Collapsed;
+        HotkeyRecordBtn.Content = "🎙 录制触发键";
+        HotkeyRecordHint.Visibility = Visibility.Collapsed;
     }
 
     private void ResetCaptureBoxUI()
     {
-        HotkeyCaptureBox.Background = (System.Windows.Media.Brush)FindResource("MainSurfaceBrush");
-        HotkeyCaptureBox.BorderBrush = (System.Windows.Media.Brush)FindResource("BorderStrongBrush");
-        HotkeyPlaceholder.Text = "点击后按下任意按键或组合键...";
+        _isCapturingHotkey = false;
+        HotkeyRecordingStatus.Visibility = Visibility.Collapsed;
+        HotkeyRecordBtn.Content = "🎙 录制触发键";
+        HotkeyRecordHint.Visibility = Visibility.Collapsed;
+
+        if (!string.IsNullOrEmpty(_capturedKey))
+        {
+            var display = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
+            HotkeyDisplayText.Text = display;
+            HotkeyDisplayBox.Visibility = Visibility.Visible;
+        }
     }
 
     private bool IsCapturing => _isCapturingHotkey || _capturingAction;
@@ -408,17 +469,14 @@ public partial class RuleEditorDialog : Window
         var source = PresentationSource.FromVisual(this);
         if (source == null)
         {
-            // Window was closed — detach this leaked handler immediately
             CleanupMessageFilter();
             return;
         }
 
-        // Only capture when explicitly in capture mode
         if (!_isCapturingHotkey && !_capturingAction)
             return;
 
         var key = KeyInterop.KeyFromVirtualKey((int)msg.wParam);
-
         var args = new System.Windows.Input.KeyEventArgs(
             Keyboard.PrimaryDevice,
             source,
@@ -456,6 +514,35 @@ public partial class RuleEditorDialog : Window
                     $"触发键【{display}】已被规则「{conflict.Name}」使用，请更换其他按键。",
                     "触发键冲突", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
+            }
+        }
+
+        // Check against ALL other profiles' rules for global conflicts
+        var allProfiles = App.ConfigService.Settings.Profiles;
+        foreach (var profile in allProfiles)
+        {
+            if (profile.Rules == null) continue;
+
+            bool isTargetGlobal = string.Equals(profile.Match?.ProcessName, "*", StringComparison.Ordinal);
+            bool isCurrentGlobal = _isGlobalProfile;
+
+            // Skip checking same rules
+            foreach (var rule in profile.Rules)
+            {
+                if (rule == null) continue;
+                var isSameRule = _existingRules?.Any(r => r.Id == rule.Id) ?? false;
+                if (!isSameRule && HotkeyParser.AreEqual(rule.Hotkey.Key, rule.Hotkey.Modifiers, _capturedKey, _capturedModifiers))
+                {
+                    // Global vs Any: always warn
+                    if (isTargetGlobal || isCurrentGlobal)
+                    {
+                        var targetDesc = isTargetGlobal ? "全局" : "";
+                        MessageBox.Show(
+                            $"触发键【{display}】已与{targetDesc}配置「{profile.Name}」中的规则「{rule.Name}」冲突。\n\n全局配置的快捷键会在所有窗口生效，请更换其他按键。",
+                            "全局快捷键冲突", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+                }
             }
         }
         var name = RuleNameBox.Text.Trim();
@@ -530,10 +617,32 @@ public partial class RuleEditorDialog : Window
             }
 
             var keyName = MapWpfKey(e.Key);
-            if (!string.IsNullOrEmpty(keyName) && !IsModifierKey(e.Key) && keyName != "Escape")
+            if (string.IsNullOrEmpty(keyName) || keyName == "Escape")
+                return;
+
+            if (_isChordMode)
             {
+                // Chord mode: ignore modifier keys, wait for the main key
+                if (IsModifierKey(e.Key))
+                    return;
+
+                _actionKeys.Clear();
                 _actionKeys.Add(keyName);
-                SequenceStatusText.Text = "已录入: " + string.Join(" → ", _actionKeys);
+                _savedChordModifiers = new List<string>(GetModifiersFromKeyboard());
+                SequenceStatusText.Text = "同时输出: " + (_savedChordModifiers.Count > 0 
+                    ? string.Join(" + ", _savedChordModifiers) + " + " + keyName 
+                    : keyName);
+                AutoScrollToEnd(SequenceStatusScroll);
+            }
+            else
+            {
+                // Sequence mode: record multiple keys, user presses Esc to finish
+                if (!IsModifierKey(e.Key))
+                {
+                    _actionKeys.Add(keyName);
+                    SequenceStatusText.Text = "已录入: " + string.Join(" → ", _actionKeys);
+                    AutoScrollToEnd(SequenceStatusScroll);
+                }
             }
             return;
         }
@@ -544,8 +653,6 @@ public partial class RuleEditorDialog : Window
             var modifiers = GetModifiersFromKeyboard();
             if (IsModifierKey(e.Key))
             {
-                if (modifiers.Count > 0)
-                    HotkeyPlaceholder.Text = string.Join(" + ", modifiers) + " + ...";
                 return;
             }
 
@@ -564,7 +671,10 @@ public partial class RuleEditorDialog : Window
             _isCapturingHotkey = false;
             ResetCaptureBoxUI();
             SetCaptureMode(false);
-            ShowTestArea();
+
+            // Show test area if action already recorded
+            if (_savedAction != null)
+                ShowTestArea();
             return;
         }
     }
@@ -573,6 +683,10 @@ public partial class RuleEditorDialog : Window
 
     private static string MapWpfKey(Key key) => key switch
     {
+        Key.LeftCtrl or Key.RightCtrl => "Ctrl",
+        Key.LeftShift or Key.RightShift => "Shift",
+        Key.LeftAlt or Key.RightAlt => "Alt",
+        Key.LWin or Key.RWin => "Win",
         Key.F1 => "F1", Key.F2 => "F2", Key.F3 => "F3", Key.F4 => "F4",
         Key.F5 => "F5", Key.F6 => "F6", Key.F7 => "F7", Key.F8 => "F8",
         Key.F9 => "F9", Key.F10 => "F10", Key.F11 => "F11", Key.F12 => "F12",
@@ -606,4 +720,22 @@ public partial class RuleEditorDialog : Window
         _ when key >= Key.D0 && key <= Key.D9 => key.ToString().Last().ToString(),
         _ => string.Empty
     };
+
+    private void SetIcon()
+    {
+        try
+        {
+            var icoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LKey.ico");
+            if (!File.Exists(icoPath)) return;
+            using var fs = new FileStream(icoPath, FileMode.Open, FileAccess.Read);
+            using var ico = new System.Drawing.Icon(fs);
+            var bmp = ico.ToBitmap();
+            var hbmp = bmp.GetHbitmap();
+            Icon = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                hbmp, IntPtr.Zero, System.Windows.Int32Rect.Empty,
+                System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+            Win32Api.DeleteObject(hbmp);
+        }
+        catch { }
+    }
 }

@@ -26,10 +26,10 @@
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Style="{StaticResource SecondaryButtonStyle}"
-                        Width="80" Margin="0,0,8,0"
+                        Padding="20,0" Margin="0,0,8,0"
                         Click="Cancel_Click">取消</Button>
                 <Button Style="{StaticResource PrimaryButtonStyle}"
-                        Width="80"
+                        Padding="20,0"
                         Click="Confirm_Click">确定</Button>
             </StackPanel>
         </Grid>

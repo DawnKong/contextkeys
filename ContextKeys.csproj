@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -10,8 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="lanse.png" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="huise.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="LKey.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="HKey.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

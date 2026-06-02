@@ -37,6 +37,9 @@ public class MainViewModel : INotifyPropertyChanged
         _foreground.ForegroundChanged += OnForegroundChanged;
         _keyboardHook.HotkeyTriggered += OnHotkeyTriggered;
 
+        // Auto-save when settings change
+        _config.Settings.Settings.PropertyChanged += (_, _) => _config.Save();
+
         // Set initial profile
         var info = App.WindowEnumService.GetForegroundWindowInfo();
         if (info != null)
@@ -191,9 +194,10 @@ public class MainViewModel : INotifyPropertyChanged
         if (matched != _currentProfile)
         {
             CurrentProfile = matched;
-            if (matched != null && _config.Settings.Settings.ShowProfileToast && !_paused)
+            if (matched != null && !_paused)
             {
-                _toast.ShowProfileToast(matched);
+                var displayMode = _config.Settings.Settings.ToastDisplayMode;
+                _toast.ShowProfileToast(matched, displayMode);
             }
         }
     }

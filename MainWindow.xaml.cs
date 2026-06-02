@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using ContextKeys.Models;
 using ContextKeys.Services;
 using ContextKeys.Views;
+using ContextKeys.Utils;
 
 namespace ContextKeys;
 
@@ -15,10 +16,31 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        // Set taskbar/Alt+Tab icon from PNG
+        SetWindowIcon();
+
         // Show empty state if no profiles
         UpdateEmptyState();
 
         App.ConfigService.SettingsChanged += OnSettingsChanged;
+    }
+
+    private void SetWindowIcon()
+    {
+        try
+        {
+            var icoPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LKey.ico");
+            if (!File.Exists(icoPath)) return;
+            using var fs = new FileStream(icoPath, FileMode.Open, FileAccess.Read);
+            using var ico = new System.Drawing.Icon(fs);
+            var bmp = ico.ToBitmap();
+            var hbmp = bmp.GetHbitmap();
+            Icon = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                hbmp, IntPtr.Zero, System.Windows.Int32Rect.Empty,
+                System.Windows.Media.Imaging.BitmapSizeOptions.FromEmptyOptions());
+            Win32Api.DeleteObject(hbmp);
+        }
+        catch { /* fallback to default icon */ }
     }
 
     private void OnSettingsChanged(ContextKeys.Models.AppSettings _)
@@ -168,7 +190,7 @@ public partial class MainWindow : Window
 
     private void OpenConfigFolder_Click(object sender, RoutedEventArgs e)
     {
-        var configDir = App.ConfigService.GetConfigDirectory();
+        var configDir = App.ConfigService.ConfigDirectory;
         if (System.IO.Directory.Exists(configDir))
         {
             Process.Start("explorer.exe", configDir);
@@ -210,15 +232,29 @@ public partial class MainWindow : Window
     {
         if (_blueIcon != null) return;
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        var bluePath = System.IO.Path.Combine(baseDir, "lanse.png");
-        var grayPath = System.IO.Path.Combine(baseDir, "huise.png");
+        var bluePath = System.IO.Path.Combine(baseDir, "LKey.ico");
+        var grayPath = System.IO.Path.Combine(baseDir, "HKey.ico");
+        var assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
 
-        // Try parent directory too (running from ContextKeys/ subfolder)
-        if (!File.Exists(bluePath)) bluePath = System.IO.Path.Combine(baseDir, "..", "lanse.png");
-        if (!File.Exists(grayPath)) grayPath = System.IO.Path.Combine(baseDir, "..", "huise.png");
+        if (File.Exists(bluePath))
+        {
+            using var fs = new FileStream(bluePath, FileMode.Open, FileAccess.Read);
+            _blueIcon = new System.Drawing.Icon(fs);
+        }
+        else
+        {
+            _blueIcon = System.Drawing.Icon.ExtractAssociatedIcon(assemblyPath);
+        }
 
-        if (File.Exists(bluePath)) _blueIcon = Utils.Win32Api.LoadPngAsIcon(bluePath);
-        if (File.Exists(grayPath)) _grayIcon = Utils.Win32Api.LoadPngAsIcon(grayPath);
+        if (File.Exists(grayPath))
+        {
+            using var fs = new FileStream(grayPath, FileMode.Open, FileAccess.Read);
+            _grayIcon = new System.Drawing.Icon(fs);
+        }
+        else
+        {
+            _grayIcon = _blueIcon;
+        }
     }
 
     private void UpdateTrayIcon()

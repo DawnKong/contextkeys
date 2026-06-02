@@ -60,16 +60,16 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Button Grid.Column="0" Style="{StaticResource SecondaryButtonStyle}"
-                        Height="32" Padding="12,0" FontSize="13"
+                        Height="32" Padding="16,0" FontSize="13"
                         HorizontalAlignment="Left"
                         Click="Refresh_Click">刷新列表</Button>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Button Style="{StaticResource SecondaryButtonStyle}"
-                            Height="32" Padding="16,0" FontSize="13"
+                            Height="32" Padding="20,0" FontSize="13"
                             Margin="0,0,8,0"
                             Click="Cancel_Click">取消</Button>
                     <Button x:Name="BindBtn" Style="{StaticResource PrimaryButtonStyle}"
-                            Height="32" Padding="16,0" FontSize="13"
+                            Height="32" Padding="20,0" FontSize="13"
                             IsEnabled="False"
                             Click="Bind_Click">绑定</Button>
                 </StackPanel>

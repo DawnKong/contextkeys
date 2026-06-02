@@ -1,0 +1,35 @@
+<Window x:Class="ContextKeys.Views.UnboundConfirmDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="" Width="400" Height="180"
+        Background="{StaticResource AppBackgroundBrush}"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="True">
+    <Border Style="{StaticResource CardStyle}" CornerRadius="12">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" VerticalAlignment="Center" Margin="0,8,0,16">
+                <TextBlock FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" TextAlignment="Center">
+                    尚未绑定窗口。
+                </TextBlock>
+                <TextBlock FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0">
+                    不绑定窗口则快捷键将在所有窗口全局生效。
+                </TextBlock>
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="BindBtn" Style="{StaticResource PrimaryButtonStyle}" Padding="20,6" Margin="0,0,12,0"
+                        Click="Bind_Click">绑定窗口</Button>
+                <Button Style="{StaticResource SecondaryButtonStyle}" Padding="20,6"
+                        Click="Confirm_Click">确定</Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

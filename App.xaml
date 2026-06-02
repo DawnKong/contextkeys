@@ -1,4 +1,4 @@
-﻿<Application x:Class="ContextKeys.App"
+<Application x:Class="ContextKeys.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:utils="clr-namespace:ContextKeys.Utils"
@@ -12,6 +12,7 @@
             </ResourceDictionary.MergedDictionaries>
             <utils:BooleanToVisibilityConverter x:Key="BoolToVis" />
             <utils:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
+            <utils:StringEqualsConverter x:Key="StringEqualsConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
