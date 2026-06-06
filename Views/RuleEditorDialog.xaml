@@ -6,8 +6,7 @@
         Background="{StaticResource AppBackgroundBrush}"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
-        PreviewKeyDown="Window_PreviewKeyDown"
-        KeyUp="Window_KeyUp">
+        PreviewKeyDown="Window_PreviewKeyDown">
     <Border Padding="24" Background="{StaticResource AppBackgroundBrush}">
         <Grid>
             <Grid.RowDefinitions>
@@ -196,7 +195,7 @@
                                 </Grid>
                                 <TextBlock FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
                                            Margin="0,4,0,0">
-                                    点击左侧触发键或按下触发键，在上方文本框检测输出动作。
+                                    点击左侧触发键，在上方文本框检测输出动作。
                                 </TextBlock>
                             </StackPanel>
                         </Border>

@@ -1,15 +1,20 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using ContextKeys.Models;
 using ContextKeys.Services;
 using ContextKeys.Utils;
+using Microsoft.Win32;
 
 namespace ContextKeys.ViewModels;
 
 public class MainViewModel : INotifyPropertyChanged
 {
+    private const string StartupRegistryKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string StartupRegistryValueName = "ContextKeys";
+
     private readonly ConfigService _config;
     private readonly ForegroundWindowService _foreground;
     private readonly KeyboardHookService _keyboardHook;
@@ -37,8 +42,8 @@ public class MainViewModel : INotifyPropertyChanged
         _foreground.ForegroundChanged += OnForegroundChanged;
         _keyboardHook.HotkeyTriggered += OnHotkeyTriggered;
 
-        // Auto-save when settings change
-        _config.Settings.Settings.PropertyChanged += (_, _) => _config.Save();
+        _config.Settings.Settings.PropertyChanged += OnSettingsPropertyChanged;
+        ApplyStartOnBootSetting(_config.Settings.Settings.StartOnBoot);
 
         // Set initial profile
         var info = App.WindowEnumService.GetForegroundWindowInfo();
@@ -88,10 +93,12 @@ public class MainViewModel : INotifyPropertyChanged
             _config.Save();
             OnPropertyChanged();
             OnPropertyChanged(nameof(PausedText));
+            OnPropertyChanged(nameof(PauseButtonText));
         }
     }
 
     public string PausedText => _paused ? "已暂停" : "运行中";
+    public string PauseButtonText => _paused ? "▶ 恢复快捷键" : "暂停所有快捷键";
 
     public string LastTriggeredInfo
     {
@@ -167,15 +174,28 @@ public class MainViewModel : INotifyPropertyChanged
 
     public void TestActions(List<ActionStep> actions)
     {
-        SafeExecutionGuard.TryEnter();
-        try
+        if (!SafeExecutionGuard.TryEnter())
         {
-            _inputSim.ExecuteActions(actions);
+            LastTriggeredInfo = "测试输出被阻塞：已有动作正在执行";
+            Logger.Warn("TestActions 阻塞: TryEnter 返回 false (已有动作在执行)");
+            return;
         }
-        finally
+
+        System.Threading.Tasks.Task.Run(() =>
         {
-            SafeExecutionGuard.Exit();
-        }
+            try
+            {
+                _inputSim.ExecuteActions(actions);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"TestActions 执行异常: {ex}");
+            }
+            finally
+            {
+                SafeExecutionGuard.Exit();
+            }
+        });
     }
 
     private void OnForegroundChanged(string processName, string title)
@@ -221,7 +241,14 @@ public class MainViewModel : INotifyPropertyChanged
         {
             try
             {
-                _inputSim.ExecuteActions(rule.Actions, _config.Settings.Settings.InputIntervalMs);
+                var action = rule.Actions.FirstOrDefault();
+                if (action == null)
+                {
+                    Logger.Warn($"规则没有输出动作: {rule.Name}");
+                    return;
+                }
+
+                _inputSim.ExecuteActions(new List<ActionStep> { action }, _config.Settings.Settings.InputIntervalMs);
                 TryUpdateUI(() => LastTriggeredInfo = info + " ✓");
             }
             catch (Exception ex)
@@ -235,6 +262,61 @@ public class MainViewModel : INotifyPropertyChanged
             }
         });
     }
+
+    private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SettingsData.StartOnBoot))
+            ApplyStartOnBootSetting(_config.Settings.Settings.StartOnBoot);
+
+        _config.Save();
+    }
+
+    private static void ApplyStartOnBootSetting(bool enabled)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(StartupRegistryKeyPath);
+            if (key == null)
+                return;
+
+            if (enabled)
+            {
+                key.SetValue(StartupRegistryValueName, BuildStartupCommand(), RegistryValueKind.String);
+            }
+            else
+            {
+                key.DeleteValue(StartupRegistryValueName, throwOnMissingValue: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"开机自启动设置失败: {ex.Message}");
+        }
+    }
+
+    private static string BuildStartupCommand()
+    {
+        var appExePath = Path.Combine(AppContext.BaseDirectory, "ContextKeys.exe");
+        if (File.Exists(appExePath))
+            return Quote(appExePath);
+
+        var processPath = Environment.ProcessPath;
+        if (!string.IsNullOrWhiteSpace(processPath))
+        {
+            var assemblyPath = Environment.ProcessPath;
+            if (processPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                assemblyPath = Path.Combine(AppContext.BaseDirectory, "ContextKeys.dll");
+                return $"{Quote(processPath)} {Quote(assemblyPath)}";
+            }
+
+            return Quote(processPath);
+        }
+
+        return Quote(Process.GetCurrentProcess().MainModule?.FileName ?? Path.Combine(AppContext.BaseDirectory, "ContextKeys.exe"));
+    }
+
+    private static string Quote(string value) => $"\"{value}\"";
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

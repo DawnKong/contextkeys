@@ -56,7 +56,7 @@ public class SettingsData : INotifyPropertyChanged
     public int InputIntervalMs
     {
         get => _inputIntervalMs;
-        set { _inputIntervalMs = value; OnPropertyChanged(); }
+        set { _inputIntervalMs = Math.Clamp(value, 1, 10_000); OnPropertyChanged(); }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

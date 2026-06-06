@@ -23,21 +23,34 @@ public class InputSimulationService
             switch (action.Type)
             {
                 case "sequence":
-                    ExecuteSequence(action.Keys ?? new List<string>(), action.IntervalMs > 0 ? action.IntervalMs : (globalIntervalMs ?? _defaultIntervalMs));
+                    ExecuteSequence(action.Keys ?? new List<string>(), ResolveInterval(action.IntervalMs, globalIntervalMs));
                     break;
                 case "chord":
                     ExecuteChord(action.Keys ?? new List<string>());
                     break;
                 case "delay":
                     if (action.Milliseconds > 0)
-                        Thread.Sleep(action.Milliseconds);
+                        Thread.Sleep(ClampDelay(action.Milliseconds));
                     break;
             }
         }
     }
 
+    private int ResolveInterval(int actionIntervalMs, int? globalIntervalMs)
+    {
+        var interval = actionIntervalMs > 0 ? actionIntervalMs : globalIntervalMs ?? _defaultIntervalMs;
+        return Math.Clamp(interval, 1, 10_000);
+    }
+
+    private static int ClampDelay(int milliseconds)
+    {
+        return Math.Clamp(milliseconds, 0, 60_000);
+    }
+
     private static void ExecuteSequence(List<string> keys, int intervalMs)
     {
+        var pendingModifiers = new List<(byte Vk, string Key)>();
+
         foreach (var key in keys)
         {
             var vk = KeyCodeMapper.GetVkCode(key);
@@ -47,11 +60,39 @@ public class InputSimulationService
                 continue;
             }
 
-            SendKey(vk, down: true, key);
-            Thread.Sleep(intervalMs);
-            SendKey(vk, down: false, key);
+            if (KeyCodeMapper.IsModifier(key))
+            {
+                if (!pendingModifiers.Any(modifier => modifier.Vk == vk))
+                {
+                    SendKey(vk, down: true, key);
+                    pendingModifiers.Add((vk, key));
+                }
+                continue;
+            }
+
+            try
+            {
+                SendKey(vk, down: true, key);
+                Thread.Sleep(intervalMs);
+                SendKey(vk, down: false, key);
+            }
+            finally
+            {
+                ReleasePendingModifiers(pendingModifiers);
+            }
+
             Thread.Sleep(1);
         }
+
+        ReleasePendingModifiers(pendingModifiers);
+    }
+
+    private static void ReleasePendingModifiers(List<(byte Vk, string Key)> pendingModifiers)
+    {
+        for (var index = pendingModifiers.Count - 1; index >= 0; index--)
+            SendKey(pendingModifiers[index].Vk, down: false, pendingModifiers[index].Key);
+
+        pendingModifiers.Clear();
     }
 
     private static void ExecuteChord(List<string> keys)
@@ -78,49 +119,38 @@ public class InputSimulationService
         }
     }
 
-    /// <summary>
-    /// Send a single key event using keybd_event (simple, reliable API).
-    /// Falls back to SendInput if keybd_event doesn't work.
-    /// </summary>
     private static void SendKey(byte vkCode, bool down, string keyName)
     {
-        byte scan = (byte)KeyCodeMapper.GetScanCode(vkCode);
+        var scan = KeyCodeMapper.GetScanCode(vkCode);
+        var extendedKeyFlag = KeyCodeMapper.IsExtendedKey(vkCode) || string.Equals(keyName, "NumEnter", StringComparison.OrdinalIgnoreCase)
+            ? Win32Api.KEYEVENTF_EXTENDEDKEY
+            : 0;
         var flags = down
-            ? (KeyCodeMapper.IsExtendedKey(vkCode) ? Win32Api.KEYEVENTF_EXTENDEDKEY : 0)
-            : Win32Api.KEYEVENTF_KEYUP | (KeyCodeMapper.IsExtendedKey(vkCode) ? Win32Api.KEYEVENTF_EXTENDEDKEY : 0);
+            ? extendedKeyFlag
+            : Win32Api.KEYEVENTF_KEYUP | extendedKeyFlag;
 
-        try
+        var input = new Win32Api.INPUT
         {
-            Win32Api.keybd_event(vkCode, scan, flags, Win32Api.INJECTED_BY_APP);
-            Logger.Info($"keybd_event {(down ? "DOWN" : "UP  ")} VK:{vkCode:X2} Key:{keyName}");
-        }
-        catch (Exception ex)
-        {
-            Logger.Error($"keybd_event 失败: {ex.Message}，尝试 SendInput");
-
-            // Fallback to SendInput
-            var input = new Win32Api.INPUT
+            type = Win32Api.INPUT_KEYBOARD,
+            u = new Win32Api.InputUnion
             {
-                type = Win32Api.INPUT_KEYBOARD,
-                u = new Win32Api.InputUnion
+                ki = new Win32Api.KEYBDINPUT
                 {
-                    ki = new Win32Api.KEYBDINPUT
-                    {
-                        wVk = vkCode,
-                        wScan = scan,
-                        dwFlags = flags,
-                        time = 0,
-                        dwExtraInfo = Win32Api.INJECTED_BY_APP
-                    }
+                    wVk = vkCode,
+                    wScan = scan,
+                    dwFlags = flags,
+                    time = 0,
+                    dwExtraInfo = Win32Api.INJECTED_BY_APP
                 }
-            };
-            var sent = Win32Api.SendInput(1, new[] { input }, Win32Api.InputCbSize);
-            Logger.Info($"SendInput fallback Sent:{sent}");
-            if (sent == 0)
-            {
-                var err = Marshal.GetLastWin32Error();
-                Logger.Error($"SendInput 失败, LastError:{err}");
             }
+        };
+
+        var sent = Win32Api.SendInput(1, new[] { input }, Win32Api.InputCbSize);
+        Logger.Info($"SendInput {(down ? "DOWN" : "UP  ")} VK:{vkCode:X2} Key:{keyName} Sent:{sent}");
+        if (sent == 0)
+        {
+            var err = Marshal.GetLastWin32Error();
+            Logger.Error($"SendInput 失败, LastError:{err}, VK:{vkCode:X2}, Key:{keyName}");
         }
     }
 }

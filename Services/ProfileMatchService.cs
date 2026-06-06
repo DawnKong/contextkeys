@@ -13,6 +13,8 @@ public class ProfileMatchService
         if (string.IsNullOrWhiteSpace(processName))
             return null;
 
+        Profile? globalProfile = null;
+
         foreach (var profile in profiles)
         {
             if (!profile.Enabled)
@@ -21,6 +23,12 @@ public class ProfileMatchService
             var match = profile.Match;
             if (match == null)
                 continue;
+
+            if (IsGlobalMatch(match))
+            {
+                globalProfile ??= profile;
+                continue;
+            }
 
             switch (match.MatchMode)
             {
@@ -49,7 +57,7 @@ public class ProfileMatchService
             }
         }
 
-        return null;
+        return globalProfile;
     }
 
     /// <summary>
@@ -60,6 +68,9 @@ public class ProfileMatchService
         var match = profile.Match;
         if (match == null || !profile.Enabled)
             return false;
+
+        if (IsGlobalMatch(match))
+            return true;
 
         return match.MatchMode switch
         {
@@ -72,5 +83,10 @@ public class ProfileMatchService
                 string.Equals(title, match.TitleEquals, StringComparison.OrdinalIgnoreCase),
             _ => false
         };
+    }
+
+    private static bool IsGlobalMatch(WindowMatch match)
+    {
+        return string.Equals(match.ProcessName, "*", StringComparison.Ordinal);
     }
 }

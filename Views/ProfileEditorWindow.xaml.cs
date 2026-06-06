@@ -49,7 +49,7 @@ public partial class ProfileEditorWindow : Window
             foreach (var rule in profile.Rules)
             {
                 if (rule != null)
-                    _rules.Add(rule);
+                    _rules.Add(CloneRule(rule));
             }
         }
         RefreshRulesList();
@@ -161,6 +161,36 @@ public partial class ProfileEditorWindow : Window
     {
         RulesList.ItemsSource = null;
         RulesList.ItemsSource = _rules;
+    }
+
+    private static HotkeyRule CloneRule(HotkeyRule rule)
+    {
+        return new HotkeyRule
+        {
+            Id = rule.Id,
+            Name = rule.Name,
+            Enabled = rule.Enabled,
+            SuppressOriginalKey = rule.SuppressOriginalKey,
+            Hotkey = new HotkeyDefinition
+            {
+                Key = rule.Hotkey.Key,
+                Modifiers = new List<string>(rule.Hotkey.Modifiers),
+                Display = rule.Hotkey.Display
+            },
+            Actions = rule.Actions.Select(CloneAction).ToList()
+        };
+    }
+
+    private static ActionStep CloneAction(ActionStep action)
+    {
+        return new ActionStep
+        {
+            Type = action.Type,
+            Keys = action.Keys == null ? null : new List<string>(action.Keys),
+            IntervalMs = action.IntervalMs,
+            Milliseconds = action.Milliseconds,
+            Display = action.Display
+        };
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

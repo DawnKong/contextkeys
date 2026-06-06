@@ -35,7 +35,7 @@ public class ConfigService
             return appDataDir;
 
         // 回退到程序目录
-        var exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+        var exeDir = AppContext.BaseDirectory;
         if (!string.IsNullOrEmpty(exeDir))
         {
             var localDir = Path.Combine(exeDir, "config");
@@ -81,7 +81,20 @@ public class ConfigService
     {
         Directory.CreateDirectory(_configDir);
         var json = JsonSerializer.Serialize(_settings, JsonOptions);
-        File.WriteAllText(_configPath, json, Encoding.UTF8);
+        var tempPath = Path.Combine(_configDir, $"config.{Guid.NewGuid():N}.tmp");
+        File.WriteAllText(tempPath, json, Encoding.UTF8);
+        try
+        {
+            if (File.Exists(_configPath))
+                File.Replace(tempPath, _configPath, null, ignoreMetadataErrors: true);
+            else
+                File.Move(tempPath, _configPath);
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+        }
         SettingsChanged?.Invoke(_settings);
     }
 
@@ -94,12 +107,48 @@ public class ConfigService
 
             var json = File.ReadAllText(_configPath, Encoding.UTF8);
             var settings = JsonSerializer.Deserialize<AppSettings>(json);
-            return settings ?? CreateDefault();
+            return Normalize(settings ?? CreateDefault());
         }
         catch
         {
             return CreateDefault();
         }
+    }
+
+    private static AppSettings Normalize(AppSettings settings)
+    {
+        settings.Settings ??= new SettingsData();
+        settings.Settings.InputIntervalMs = Math.Clamp(settings.Settings.InputIntervalMs, 1, 10_000);
+        if (settings.Settings.ToastDisplayMode is not ("timed" or "always" or "hidden"))
+            settings.Settings.ToastDisplayMode = "timed";
+        settings.Profiles ??= new List<Profile>();
+
+        foreach (var profile in settings.Profiles)
+        {
+            profile.Id = string.IsNullOrWhiteSpace(profile.Id) ? Guid.NewGuid().ToString("N") : profile.Id;
+            profile.Name ??= string.Empty;
+            profile.Match ??= new WindowMatch();
+            profile.Rules ??= new List<HotkeyRule>();
+
+            foreach (var rule in profile.Rules)
+            {
+                rule.Id = string.IsNullOrWhiteSpace(rule.Id) ? Guid.NewGuid().ToString("N") : rule.Id;
+                rule.Name ??= string.Empty;
+                rule.Hotkey ??= new HotkeyDefinition();
+                rule.Hotkey.Key ??= string.Empty;
+                rule.Hotkey.Modifiers ??= new List<string>();
+                rule.Hotkey.Display ??= string.Empty;
+                rule.Actions ??= new List<ActionStep>();
+
+                foreach (var action in rule.Actions)
+                {
+                    action.Type = string.IsNullOrWhiteSpace(action.Type) ? "sequence" : action.Type;
+                    action.Display ??= string.Empty;
+                }
+            }
+        }
+
+        return settings;
     }
 
     private AppSettings CreateDefault()

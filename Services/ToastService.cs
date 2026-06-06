@@ -15,17 +15,28 @@ public class ToastService
         Application.Current.Dispatcher.Invoke(() =>
         {
             CloseCurrentToast();
-            _currentToast = new ToastWindow(profile, displayMode);
-            _currentToast.Show();
+            var toast = new ToastWindow(profile, displayMode);
+            toast.Closed += OnToastClosed;
+            _currentToast = toast;
+            toast.Show();
         });
     }
 
     public void CloseCurrentToast()
     {
-        if (_currentToast != null)
+        var toast = _currentToast;
+        if (toast != null)
         {
-            _currentToast.Close();
             _currentToast = null;
+            toast.Closed -= OnToastClosed;
+            try { toast.Close(); }
+            catch { }
         }
+    }
+
+    private void OnToastClosed(object? sender, EventArgs e)
+    {
+        if (ReferenceEquals(sender, _currentToast))
+            _currentToast = null;
     }
 }

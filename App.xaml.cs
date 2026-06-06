@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using ContextKeys.Services;
+using ContextKeys.Utils;
 
 namespace ContextKeys;
 
@@ -20,7 +21,8 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += (s, args) =>
         {
             System.Diagnostics.Debug.WriteLine($"UI 线程未处理异常: {args.Exception}");
-            MessageBox.Show($"发生错误: {args.Exception.Message}", "ContextKeys 错误",
+            Logger.Error($"UI 线程未处理异常: {args.Exception}");
+            MessageBox.Show($"发生错误: {BuildExceptionMessage(args.Exception)}", "ContextKeys 错误",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             args.Handled = true;
         };
@@ -28,6 +30,7 @@ public partial class App : System.Windows.Application
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
             System.Diagnostics.Debug.WriteLine($"未处理异常(非UI): {args.ExceptionObject}");
+            Logger.Error($"未处理异常(非UI): {args.ExceptionObject}");
         };
 
         try
@@ -56,5 +59,14 @@ public partial class App : System.Windows.Application
         try { ForegroundService.Stop(); } catch { }
 
         base.OnExit(e);
+    }
+
+    private static string BuildExceptionMessage(Exception exception)
+    {
+        var messages = new List<string>();
+        for (var current = exception; current != null; current = current.InnerException)
+            messages.Add(current.Message);
+
+        return string.Join("\n\n→ ", messages);
     }
 }

@@ -28,6 +28,7 @@ public partial class RuleEditorDialog : Window
     public HotkeyRule? ResultRule { get; private set; }
     private readonly List<HotkeyRule>? _existingRules;
     private readonly string? _editingRuleId;
+    private readonly bool _editingRuleEnabled = true;
     private readonly bool _isGlobalProfile;
 
     public RuleEditorDialog() : this(null, false) { }
@@ -49,6 +50,7 @@ public partial class RuleEditorDialog : Window
         Title = "编辑快捷键规则";
         _existingRules = existingRules;
         _editingRuleId = rule.Id;
+        _editingRuleEnabled = rule.Enabled;
         _isGlobalProfile = isGlobalProfile;
 
         RuleNameBox.Text = rule.Name;
@@ -263,22 +265,37 @@ public partial class RuleEditorDialog : Window
     private static List<string> GetModifiersFromKeyboard()
     {
         var modifiers = new List<string>();
-        // Use GetAsyncKeyState for specific L/R detection
-        if ((GetAsyncKeyState(0xA0) & 0x8000) != 0) modifiers.Add("LShift");
-        else if ((GetAsyncKeyState(0xA1) & 0x8000) != 0) modifiers.Add("RShift");
-        else if ((GetAsyncKeyState(0x10) & 0x8000) != 0) modifiers.Add("Shift");
-
-        if ((GetAsyncKeyState(0xA2) & 0x8000) != 0) modifiers.Add("LCtrl");
-        else if ((GetAsyncKeyState(0xA3) & 0x8000) != 0) modifiers.Add("RCtrl");
-        else if ((GetAsyncKeyState(0x11) & 0x8000) != 0) modifiers.Add("Ctrl");
-
-        if ((GetAsyncKeyState(0xA4) & 0x8000) != 0) modifiers.Add("LAlt");
-        else if ((GetAsyncKeyState(0xA5) & 0x8000) != 0) modifiers.Add("RAlt");
-        else if ((GetAsyncKeyState(0x12) & 0x8000) != 0) modifiers.Add("Alt");
-
-        if ((GetAsyncKeyState(0x5B) & 0x8000) != 0) modifiers.Add("LWin");
-        else if ((GetAsyncKeyState(0x5C) & 0x8000) != 0) modifiers.Add("RWin");
+        AddModifierState(modifiers, 0xA0, 0xA1, 0x10, "LShift", "RShift", "Shift");
+        AddModifierState(modifiers, 0xA2, 0xA3, 0x11, "LCtrl", "RCtrl", "Ctrl");
+        AddModifierState(modifiers, 0xA4, 0xA5, 0x12, "LAlt", "RAlt", "Alt");
+        AddModifierState(modifiers, 0x5B, 0x5C, null, "LWin", "RWin", "Win");
         return modifiers;
+    }
+
+    private static void AddModifierState(
+        List<string> modifiers,
+        int leftVk,
+        int rightVk,
+        int? genericVk,
+        string leftName,
+        string rightName,
+        string genericName)
+    {
+        var hasLeft = IsKeyDown(leftVk);
+        var hasRight = IsKeyDown(rightVk);
+
+        if (hasLeft)
+            modifiers.Add(leftName);
+        if (hasRight)
+            modifiers.Add(rightName);
+
+        if (!hasLeft && !hasRight && genericVk.HasValue && IsKeyDown(genericVk.Value))
+            modifiers.Add(genericName);
+    }
+
+    private static bool IsKeyDown(int vKey)
+    {
+        return (GetAsyncKeyState(vKey) & 0x8000) != 0;
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -322,14 +339,10 @@ public partial class RuleEditorDialog : Window
         }
     }
 
-    private bool IsCapturing => _isCapturingHotkey || _capturingAction;
-
     private void CleanupMessageFilter()
     {
         ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
     }
-
-    private Profile? _testProfile;
 
     private void ShowTestArea()
     {
@@ -337,70 +350,28 @@ public partial class RuleEditorDialog : Window
 
         TestKeycapText.Text = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers);
         TestArea.Visibility = Visibility.Visible;
-
-        // Create a temporary profile that binds to ContextKeys itself
-        RemoveTestProfile();
-        _testProfile = new Profile
-        {
-            Id = "__test__",
-            Name = "【测试模式】",
-            Enabled = true,
-            Match = new WindowMatch
-            {
-                ProcessName = "ContextKeys",
-                MatchMode = "process_only"
-            },
-            Rules = new List<HotkeyRule>
-            {
-                new()
-                {
-                    Name = "test",
-                    Hotkey = new HotkeyDefinition
-                    {
-                        Key = _capturedKey,
-                        Modifiers = new List<string>(_capturedModifiers),
-                        Display = HotkeyParser.BuildDisplay(_capturedKey, _capturedModifiers)
-                    },
-                    SuppressOriginalKey = true,
-                    Actions = _savedAction != null
-                        ? new List<ActionStep> { _savedAction }
-                        : new List<ActionStep>()
-                }
-            }
-        };
-
-        App.ConfigService.Settings.Profiles.Add(_testProfile);
-
-        // Also add to the UI's Profiles collection so normal matching works
-        var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
-        if (mainWindow?.DataContext is ViewModels.MainViewModel vm)
-        {
-            vm.Profiles.Add(_testProfile);
-            vm.RefreshCurrentProfile();
-        }
-    }
-
-    private void RemoveTestProfile()
-    {
-        if (_testProfile == null) return;
-        App.ConfigService.Settings.Profiles.Remove(_testProfile);
-
-        var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
-        if (mainWindow?.DataContext is ViewModels.MainViewModel vm)
-        {
-            vm.Profiles.Remove(_testProfile);
-            vm.RefreshCurrentProfile();
-        }
-
-        _testProfile = null;
     }
 
     private void TestKeycap_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        var preview = _savedAction != null
-            ? FormatActionForPreview(_savedAction)
-            : "（未录制输出动作）";
-        TestOutputBox.Text = preview;
+        if (_savedAction == null)
+        {
+            TestOutputBox.Text = "（未录制输出动作）";
+            return;
+        }
+
+        TestOutputBox.Clear();
+        TestOutputBox.Focus();
+        TestOutputBox.CaretIndex = 0;
+
+        var mainWindow = Application.Current.Windows.OfType<MainWindow>().FirstOrDefault();
+        if (mainWindow?.DataContext is ViewModels.MainViewModel vm)
+        {
+            vm.TestActions(new List<ActionStep> { _savedAction });
+            return;
+        }
+
+        TestOutputBox.Text = FormatActionForPreview(_savedAction);
     }
 
     private static string FormatActionForPreview(ActionStep action)
@@ -445,14 +416,11 @@ public partial class RuleEditorDialog : Window
         SaveBtn.IsEnabled = !capturing;
         if (!capturing) SequenceStatus.Visibility = Visibility.Collapsed;
 
+        ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
         if (capturing)
         {
             // Intercept Windows messages BEFORE the IME to capture letter keys
             ComponentDispatcher.ThreadFilterMessage += OnThreadFilterMessage;
-        }
-        else
-        {
-            ComponentDispatcher.ThreadFilterMessage -= OnThreadFilterMessage;
         }
     }
 
@@ -476,7 +444,10 @@ public partial class RuleEditorDialog : Window
         if (!_isCapturingHotkey && !_capturingAction)
             return;
 
-        var key = KeyInterop.KeyFromVirtualKey((int)msg.wParam);
+        var virtualKey = (int)msg.wParam;
+        var isExtendedKey = ((long)msg.lParam & (1L << 24)) != 0;
+        var key = KeyInterop.KeyFromVirtualKey(virtualKey);
+        var messageKeyName = KeyCodeMapper.GetKeyName((byte)virtualKey, isExtendedKey);
         var args = new System.Windows.Input.KeyEventArgs(
             Keyboard.PrimaryDevice,
             source,
@@ -484,7 +455,7 @@ public partial class RuleEditorDialog : Window
             key);
 
         args.RoutedEvent = Keyboard.PreviewKeyDownEvent;
-        HandleCaptureKey(args);
+        HandleCaptureKey(args, messageKeyName);
 
         if (args.Handled)
             handled = true;
@@ -497,6 +468,13 @@ public partial class RuleEditorDialog : Window
         if (string.IsNullOrEmpty(_capturedKey))
         {
             MessageBox.Show("请设置触发键。", "提示");
+            return;
+        }
+
+        var savedAction = _savedAction;
+        if (savedAction == null)
+        {
+            MessageBox.Show("请录制一个输出动作。", "提示");
             return;
         }
 
@@ -549,17 +527,14 @@ public partial class RuleEditorDialog : Window
 
         if (string.IsNullOrWhiteSpace(name))
         {
-            name = _savedAction != null
-                ? $"{display} = {_savedAction.Display}"
-                : display;
+            name = $"{display} = {savedAction.Display}";
         }
-
-        var actions = new List<ActionStep>();
-        if (_savedAction != null) actions.Add(_savedAction);
 
         ResultRule = new HotkeyRule
         {
+            Id = _editingRuleId ?? Guid.NewGuid().ToString("N"),
             Name = name,
+            Enabled = _editingRuleEnabled,
             Hotkey = new HotkeyDefinition
             {
                 Key = _capturedKey,
@@ -567,7 +542,7 @@ public partial class RuleEditorDialog : Window
                 Display = display
             },
             SuppressOriginalKey = SuppressKeyCheck.IsChecked == true,
-            Actions = actions
+            Actions = new List<ActionStep> { savedAction }
         };
 
         DialogResult = true;
@@ -577,7 +552,6 @@ public partial class RuleEditorDialog : Window
     protected override void OnClosed(EventArgs e)
     {
         CleanupMessageFilter();
-        RemoveTestProfile();
         base.OnClosed(e);
     }
 
@@ -601,9 +575,7 @@ public partial class RuleEditorDialog : Window
         }
     }
 
-    private void Window_KeyUp(object sender, System.Windows.Input.KeyEventArgs e) { }
-
-    private void HandleCaptureKey(System.Windows.Input.KeyEventArgs e)
+    private void HandleCaptureKey(System.Windows.Input.KeyEventArgs e, string? messageKeyName = null)
     {
         e.Handled = true;
 
@@ -616,7 +588,7 @@ public partial class RuleEditorDialog : Window
                 return;
             }
 
-            var keyName = MapWpfKey(e.Key);
+            var keyName = NormalizeCapturedKey(messageKeyName) ?? MapWpfKey(e.Key);
             if (string.IsNullOrEmpty(keyName) || keyName == "Escape")
                 return;
 
@@ -656,7 +628,7 @@ public partial class RuleEditorDialog : Window
                 return;
             }
 
-            var keyName = MapWpfKey(e.Key);
+            var keyName = NormalizeCapturedKey(messageKeyName) ?? MapWpfKey(e.Key);
             if (string.IsNullOrEmpty(keyName))
                 return;
 
@@ -665,8 +637,7 @@ public partial class RuleEditorDialog : Window
             var display = HotkeyParser.BuildDisplay(keyName, modifiers);
             UpdateHotkeyPreview(display);
 
-            var reserved = new[] { "Ctrl+Alt+Del", "Win+L", "Alt+Tab", "Ctrl+Shift+Esc", "Win+D", "Win+Tab" };
-            HotkeyWarning.Visibility = reserved.Contains(display) ? Visibility.Visible : Visibility.Collapsed;
+            HotkeyWarning.Visibility = IsReservedHotkey(keyName, modifiers) ? Visibility.Visible : Visibility.Collapsed;
 
             _isCapturingHotkey = false;
             ResetCaptureBoxUI();
@@ -680,6 +651,55 @@ public partial class RuleEditorDialog : Window
     }
 
     // ── Key mapping ──
+
+    private static string? NormalizeCapturedKey(string? keyName)
+    {
+        if (string.IsNullOrWhiteSpace(keyName) || keyName.StartsWith("VK(", StringComparison.Ordinal))
+            return null;
+
+        return keyName;
+    }
+
+    private static bool IsReservedHotkey(string key, List<string> modifiers)
+    {
+        var genericModifiers = modifiers
+            .Select(ToGenericModifier)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(GetModifierDisplayOrder)
+            .ToList();
+        var signature = string.Join("+", genericModifiers.Concat(new[] { key }));
+
+        return signature is "Alt+Tab"
+            or "Ctrl+Alt+Delete"
+            or "Ctrl+Shift+Escape"
+            or "Win+D"
+            or "Win+L"
+            or "Win+Tab";
+    }
+
+    private static string ToGenericModifier(string modifier)
+    {
+        return modifier switch
+        {
+            "LCtrl" or "RCtrl" or "Control" => "Ctrl",
+            "LShift" or "RShift" => "Shift",
+            "LAlt" or "RAlt" => "Alt",
+            "LWin" or "RWin" => "Win",
+            _ => modifier
+        };
+    }
+
+    private static int GetModifierDisplayOrder(string modifier)
+    {
+        return modifier switch
+        {
+            "Ctrl" => 0,
+            "Alt" => 1,
+            "Shift" => 2,
+            "Win" => 3,
+            _ => 4
+        };
+    }
 
     private static string MapWpfKey(Key key) => key switch
     {

@@ -51,6 +51,9 @@ public static class Win32Api
     [DllImport("user32.dll", SetLastError = true)]
     public static extern nint SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, nint hMod, uint dwThreadId);
 
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern nint GetModuleHandle(string? lpModuleName);
+
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool UnhookWindowsHookEx(nint hhk);
@@ -65,6 +68,7 @@ public static class Win32Api
     public const int WM_KEYUP = 0x0101;
     public const int WM_SYSKEYDOWN = 0x0104;
     public const int WM_SYSKEYUP = 0x0105;
+    public const uint LLKHF_EXTENDED = 0x01;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct KBDLLHOOKSTRUCT
@@ -79,13 +83,6 @@ public static class Win32Api
     // SendInput
     [DllImport("user32.dll", SetLastError = true)]
     public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
-
-    // keybd_event — simpler API, no struct size issues
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nint dwExtraInfo);
-
-    public const uint KEYEVENTF_KEYDOWN_LEGACY = 0x0000;
-    public const uint KEYEVENTF_KEYUP_LEGACY = 0x0002;
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern nint GetMessageExtraInfo();
@@ -180,14 +177,4 @@ public static class Win32Api
     public static extern int QueryFullProcessImageName(nint hProcess, uint dwFlags, StringBuilder lpExeName, ref int lpdwSize);
 
     public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
-
-    /// <summary>
-    /// Load a PNG file as a System.Drawing.Icon for use with NotifyIcon.
-    /// The caller must dispose the returned Icon.
-    /// </summary>
-    public static System.Drawing.Icon LoadPngAsIcon(string pngPath)
-    {
-        using var bmp = new System.Drawing.Bitmap(pngPath);
-        return System.Drawing.Icon.FromHandle(bmp.GetHicon());
-    }
 }

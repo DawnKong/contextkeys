@@ -12,6 +12,8 @@ namespace ContextKeys;
 
 public partial class MainWindow : Window
 {
+    private bool _allowClose;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -153,15 +155,6 @@ public partial class MainWindow : Window
         if (DataContext is ViewModels.MainViewModel vm)
         {
             vm.Paused = !vm.Paused;
-
-            if (vm.Paused)
-            {
-                TogglePauseBtn.Content = "▶ 恢复快捷键";
-            }
-            else
-            {
-                TogglePauseBtn.Content = "暂停所有快捷键";
-            }
         }
     }
 
@@ -220,54 +213,51 @@ public partial class MainWindow : Window
     {
         App.ConfigService.SettingsChanged -= OnSettingsChanged;
         HideTrayIcon();
+        _appIcon?.Dispose();
+        _appIcon = null;
         base.OnClosed(e);
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (!_allowClose && App.ConfigService.Settings.Settings.MinimizeToTray)
+        {
+            e.Cancel = true;
+            Hide();
+            ShowTrayIcon();
+            return;
+        }
+
+        base.OnClosing(e);
     }
 
     // System tray support
     private System.Windows.Forms.NotifyIcon? _trayIcon;
-    private System.Drawing.Icon? _blueIcon;
-    private System.Drawing.Icon? _grayIcon;
+    private System.Drawing.Icon? _appIcon;
 
     private void LoadTrayIcons()
     {
-        if (_blueIcon != null) return;
+        if (_appIcon != null) return;
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        var bluePath = System.IO.Path.Combine(baseDir, "LKey.ico");
-        var grayPath = System.IO.Path.Combine(baseDir, "HKey.ico");
-        var assemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+        var iconPath = System.IO.Path.Combine(baseDir, "LKey.ico");
+        var appPath = Environment.ProcessPath ?? System.IO.Path.Combine(baseDir, "ContextKeys.exe");
 
-        if (File.Exists(bluePath))
+        if (File.Exists(iconPath))
         {
-            using var fs = new FileStream(bluePath, FileMode.Open, FileAccess.Read);
-            _blueIcon = new System.Drawing.Icon(fs);
+            using var fs = new FileStream(iconPath, FileMode.Open, FileAccess.Read);
+            _appIcon = new System.Drawing.Icon(fs);
         }
         else
         {
-            _blueIcon = System.Drawing.Icon.ExtractAssociatedIcon(assemblyPath);
-        }
-
-        if (File.Exists(grayPath))
-        {
-            using var fs = new FileStream(grayPath, FileMode.Open, FileAccess.Read);
-            _grayIcon = new System.Drawing.Icon(fs);
-        }
-        else
-        {
-            _grayIcon = _blueIcon;
+            _appIcon = System.Drawing.Icon.ExtractAssociatedIcon(appPath);
         }
     }
 
     private void UpdateTrayIcon()
     {
         if (_trayIcon == null) return;
-        var isPaused = (DataContext as ViewModels.MainViewModel)?.Paused ?? false;
-        var icon = isPaused ? _grayIcon : _blueIcon;
-        if (icon != null)
-        {
-            var old = _trayIcon.Icon;
-            _trayIcon.Icon = icon;
-            old?.Dispose();
-        }
+        if (_appIcon != null)
+            _trayIcon.Icon = _appIcon;
     }
 
     private void ShowTrayIcon()
@@ -277,8 +267,8 @@ public partial class MainWindow : Window
 
         _trayIcon = new System.Windows.Forms.NotifyIcon
         {
-            Icon = _blueIcon ?? System.Drawing.Icon.ExtractAssociatedIcon(
-                System.Reflection.Assembly.GetExecutingAssembly().Location),
+            Icon = _appIcon ?? System.Drawing.Icon.ExtractAssociatedIcon(
+                Environment.ProcessPath ?? System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ContextKeys.exe")),
             Visible = true,
             Text = "ContextKeys"
         };
@@ -302,12 +292,17 @@ public partial class MainWindow : Window
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         menu.Items.Add("退出", null, (_, _) =>
         {
+            _allowClose = true;
             HideTrayIcon();
             Application.Current.Shutdown();
         });
 
         _trayIcon.ContextMenuStrip = menu;
-        _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+        _trayIcon.MouseClick += (_, e) =>
+        {
+            if (e.Button == System.Windows.Forms.MouseButtons.Left)
+                RestoreFromTray();
+        };
     }
 
     private void HideTrayIcon()

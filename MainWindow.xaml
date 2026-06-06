@@ -7,7 +7,6 @@
         MinWidth="820" MinHeight="560"
         Background="{StaticResource AppBackgroundBrush}"
         WindowStartupLocation="CenterScreen"
-        Icon="LKey.ico"
         TextOptions.TextFormattingMode="Ideal">
     <Window.DataContext>
         <vm:MainViewModel x:Name="ViewModel" />
@@ -111,7 +110,7 @@
                             Height="32"
                             Style="{StaticResource SecondaryButtonStyle}"
                             Click="TogglePause_Click">
-                        <TextBlock FontSize="13" Text="{Binding PausedText}" />
+                        <TextBlock FontSize="13" Text="{Binding PauseButtonText}" />
                     </Button>
                 </StackPanel>
             </Grid>

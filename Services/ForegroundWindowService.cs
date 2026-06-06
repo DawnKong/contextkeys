@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using ContextKeys.Utils;
 
 namespace ContextKeys.Services;
@@ -27,6 +29,9 @@ public class ForegroundWindowService : IDisposable
             _winEventDelegate,
             0, 0,
             Win32Api.WINEVENT_OUTOFCONTEXT);
+
+        if (_hook == nint.Zero)
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "前台窗口监听安装失败");
 
         // Fire initial event
         var info = _windowEnumService.GetForegroundWindowInfo();

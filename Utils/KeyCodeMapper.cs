@@ -47,7 +47,7 @@ public static class KeyCodeMapper
         {"Num4", 0x64}, {"Num5", 0x65}, {"Num6", 0x66}, {"Num7", 0x67},
         {"Num8", 0x68}, {"Num9", 0x69},
         {"NumAdd", 0x6B}, {"NumSubtract", 0x6D}, {"NumMultiply", 0x6A},
-        {"NumDivide", 0x6F}, {"NumDecimal", 0x6E}, {"NumEnter", 0x6C},
+        {"NumDivide", 0x6F}, {"NumDecimal", 0x6E}, {"NumEnter", 0x0D},
         {"NumLock", 0x90},
         // Print/Screen
         {"PrintScreen", 0x2C}, {"ScrollLock", 0x91}, {"Pause", 0x13},
@@ -63,7 +63,8 @@ public static class KeyCodeMapper
     {
         foreach (var kvp in KeyToVk)
         {
-            VkToKey[kvp.Value] = kvp.Key;
+            if (!VkToKey.ContainsKey(kvp.Value))
+                VkToKey[kvp.Value] = kvp.Key;
         }
     }
 
@@ -75,6 +76,14 @@ public static class KeyCodeMapper
     public static string GetKeyName(byte vkCode)
     {
         return VkToKey.TryGetValue(vkCode, out var name) ? name : $"VK({vkCode})";
+    }
+
+    public static string GetKeyName(byte vkCode, bool isExtended)
+    {
+        if (vkCode == 0x0D && isExtended)
+            return "NumEnter";
+
+        return GetKeyName(vkCode);
     }
 
     public static bool IsModifier(byte vkCode)
@@ -103,7 +112,9 @@ public static class KeyCodeMapper
         return vkCode is 0x26 or 0x28 or 0x25 or 0x27  // arrows
             or 0x21 or 0x22 or 0x24 or 0x23           // pgup/pgdn/home/end
             or 0x2D or 0x2E                           // ins/del
-            or 0x6C;                                   // numpad enter
+            or 0x6F                                    // numpad divide
+            or 0xA3 or 0xA5                            // right ctrl/alt
+            or 0x5B or 0x5C;                           // left/right windows
     }
 
     /// <summary>
